@@ -1,0 +1,77 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Sync to Oracle VM
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PROD_HOST: ${{ vars.PROD_HOST || '141.148.218.107' }}
+      PROD_USER: ${{ vars.PROD_USER || 'ubuntu' }}
+      PROD_PATH: ${{ vars.PROD_PATH || '/home/ubuntu/streamlinepro' }}
+
+    steps:
+      - name: Checkout commit that passed CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Validate deploy settings
+        run: |
+          if [ -z "${{ secrets.PROD_SSH_PRIVATE_KEY }}" ]; then
+            echo "Missing required secret: PROD_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+          if [ -z "$PROD_PATH" ] || [ "$PROD_PATH" = "/" ]; then
+            echo "Unsafe PROD_PATH: '$PROD_PATH'"
+            exit 1
+          fi
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+
+      - name: Trust deploy host key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Sync repository to server
+        run: |
+          rsync -az --delete -e "ssh -o StrictHostKeyChecking=yes" \
+            --exclude=".git/" \
+            --exclude=".github/" \
+            --exclude="node_modules/" \
+            --exclude=".next/" \
+            --exclude=".env*" \
+            --exclude=".DS_Store" \
+            --filter='P .env' \
+            --filter='P .env.*' \
+            ./ "$PROD_USER@$PROD_HOST:$PROD_PATH/"
+
+      - name: Install deps and restart service
+        run: |
+          ssh -o StrictHostKeyChecking=yes "$PROD_USER@$PROD_HOST" "
+            set -e
+            cd '$PROD_PATH'
+            corepack pnpm install --frozen-lockfile
+            sudo systemctl restart streamlinepro.service
+            sudo systemctl is-active streamlinepro.service
+          "
