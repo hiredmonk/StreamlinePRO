@@ -1,0 +1,19 @@
+# dependencies
+node_modules
+.corepack
+.npm-cache
+
+# next.js
+.next
+out
+
+# local env files
+.env*.local
+
+# testing
+coverage
+playwright-report
+
+# misc
+.DS_Store
+*.log
