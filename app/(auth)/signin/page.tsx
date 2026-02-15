@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 export default function SignInPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
@@ -16,12 +14,12 @@ export default function SignInPage() {
           Sign in with Google to access your workspace, track commitments, and run projects with Asana-style speed.
         </p>
 
-        <Link
+        <a
           href="/auth/google"
           className="mt-8 inline-flex w-full items-center justify-center rounded-2xl border border-[#d63f2b] bg-[#dd4b39] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#c73b2a]"
         >
           Continue with Google
-        </Link>
+        </a>
       </section>
     </main>
   );

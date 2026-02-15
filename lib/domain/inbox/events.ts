@@ -1,8 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types';
+import type { AppSupabaseClient } from '@/lib/supabase/client-types';
+import type { Database, Json } from '@/lib/supabase/types';
 
 export async function createNotification(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   input: {
     workspaceId: string;
     userId: string;
@@ -19,7 +19,7 @@ export async function createNotification(
     type: input.type,
     entity_type: input.entityType,
     entity_id: input.entityId,
-    payload_json: input.payload ?? {},
+    payload_json: (input.payload ?? {}) as Json,
     channel: input.channel ?? 'in_app'
   });
 

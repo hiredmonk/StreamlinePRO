@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from 'lucide-react';
 import { completeTaskFromForm, updateTaskFromForm } from '@/lib/actions/form-actions';
@@ -20,9 +19,9 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
     <article className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href={drawerHref} className="text-[17px] font-semibold text-[#222] hover:text-[#a23a2f]">
+          <a href={drawerHref} className="text-[17px] font-semibold text-[#222] hover:text-[#a23a2f]">
             {task.title}
-          </Link>
+          </a>
           <p className="mt-1 text-xs text-[#6b6f6a]">
             {task.project.name}
             {task.section ? ` · ${task.section.name}` : ''}

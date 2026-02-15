@@ -1,8 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types';
+import type { AppSupabaseClient } from '@/lib/supabase/client-types';
 
 export async function getInboxItems(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   userId: string,
   options: { unreadOnly?: boolean } = {}
 ) {

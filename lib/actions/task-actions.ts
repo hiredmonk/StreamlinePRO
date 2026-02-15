@@ -8,6 +8,7 @@ import { createTaskSchema, updateTaskSchema, completeTaskSchema, moveTaskSchema,
 import { getServerEnv } from '@/lib/env';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
+import type { Json } from '@/lib/supabase/types';
 
 export async function createTaskAction(input: {
   projectId: string;
@@ -596,7 +597,7 @@ async function logActivity(
     task_id: input.taskId,
     actor_id: input.actorId,
     event_type: input.eventType,
-    payload_json: input.payload
+    payload_json: input.payload as Json
   });
 
   if (error) {

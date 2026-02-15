@@ -62,6 +62,12 @@ Then verify:
 - `pnpm test` - unit tests
 - `pnpm test:e2e` - Playwright tests
 
+## Dependency Compatibility
+
+- Supabase dependencies are pinned for CI stability:
+  - `@supabase/ssr` and `@supabase/supabase-js` must be upgraded together.
+  - Avoid caret (`^`) ranges for these packages to prevent type-signature drift across installs.
+
 ## GitHub Actions CD (Server Sync)
 
 Auto-deploy is configured in `.github/workflows/deploy.yml`.

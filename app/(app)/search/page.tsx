@@ -72,7 +72,9 @@ export default async function SearchPage({
 
       {query ? (
         <section className="space-y-3">
-          <p className="text-sm text-[#5d625d]">{normalizedResults.length} results for "{query}"</p>
+          <p className="text-sm text-[#5d625d]">
+            {normalizedResults.length} results for &ldquo;{query}&rdquo;
+          </p>
           <div className="space-y-4">
             {Object.entries(groupedResults).map(([projectName, projectTasks]) => (
               <section key={projectName} className="space-y-2">

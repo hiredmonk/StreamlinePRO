@@ -6,8 +6,7 @@ import {
   isWithinInterval,
   startOfDay
 } from 'date-fns';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types';
+import type { AppSupabaseClient } from '@/lib/supabase/client-types';
 
 export type TaskWithRelations = {
   id: string;
@@ -49,7 +48,7 @@ export type MyTasksGroups = {
 };
 
 export async function getProjectTasks(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   projectId: string
 ): Promise<TaskWithRelations[]> {
   const { data, error } = await supabase
@@ -99,7 +98,7 @@ export async function getProjectTasks(
 }
 
 export async function getMyTasks(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   userId: string
 ): Promise<MyTasksGroups> {
   const { data, error } = await supabase
@@ -188,7 +187,7 @@ export async function getMyTasks(
 }
 
 export async function getTaskById(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   taskId: string
 ): Promise<TaskWithRelations | null> {
   const { data, error } = await supabase
@@ -242,7 +241,7 @@ export async function getTaskById(
 }
 
 export async function getSubtasks(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   parentTaskId: string
 ): Promise<TaskWithRelations[]> {
   const { data, error } = await supabase
@@ -292,7 +291,7 @@ export async function getSubtasks(
 }
 
 export async function getTaskComments(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   taskId: string
 ) {
   const { data, error } = await supabase
@@ -309,7 +308,7 @@ export async function getTaskComments(
 }
 
 export async function getTaskAttachments(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   taskId: string
 ) {
   const { data, error } = await supabase
@@ -326,7 +325,7 @@ export async function getTaskAttachments(
 }
 
 export async function getTaskActivity(
-  supabase: SupabaseClient<Database>,
+  supabase: AppSupabaseClient,
   taskId: string
 ) {
   const { data, error } = await supabase

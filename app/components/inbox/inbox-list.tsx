@@ -1,13 +1,13 @@
-import Link from 'next/link';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { markNotificationReadFromForm } from '@/lib/actions/form-actions';
+import type { Json } from '@/lib/supabase/types';
 
 type InboxItem = {
   id: string;
   type: 'assignment' | 'mention' | 'due_soon' | 'overdue' | 'comment' | 'system';
   entity_type: 'task' | 'project' | 'comment' | 'workspace';
   entity_id: string;
-  payload_json: Record<string, unknown>;
+  payload_json: Json;
   read_at: string | null;
   created_at: string;
 };
@@ -37,12 +37,12 @@ export function InboxList({ items }: { items: InboxItem[] }) {
           </p>
           <div className="mt-3 flex items-center gap-2">
             {item.entity_type === 'task' ? (
-              <Link
+              <a
                 href={`/my-tasks?task=${item.entity_id}`}
                 className="rounded-lg border border-[#d8cdb7] bg-[#f8eed8] px-3 py-1 text-sm font-semibold text-[#5d5139]"
               >
                 Open task
-              </Link>
+              </a>
             ) : null}
             {!item.read_at ? (
               <form action={markNotificationReadFromForm}>

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { format } from 'date-fns';
 import {
   addCommentFromForm,
@@ -54,9 +53,9 @@ export function TaskDrawerPanel({
             {task.title}
           </h2>
         </div>
-        <Link href={closeHref} className="rounded-full border border-[#d8ccb6] px-3 py-1 text-sm hover:bg-[#f8eedb]">
+        <a href={closeHref} className="rounded-full border border-[#d8ccb6] px-3 py-1 text-sm hover:bg-[#f8eedb]">
           Close
-        </Link>
+        </a>
       </div>
 
       <div className="mb-4 flex items-center gap-2">

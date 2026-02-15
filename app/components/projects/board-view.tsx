@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import Link from 'next/link';
 import { moveTaskAction } from '@/lib/actions/task-actions';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
@@ -101,12 +100,12 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
                   }}
                   className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 active:cursor-grabbing"
                 >
-                  <Link
+                  <a
                     href={`${drawerPathname}?task=${task.id}`}
                     className="line-clamp-2 text-sm font-semibold text-[#2b312d] hover:text-[#af3324]"
                   >
                     {task.title}
-                  </Link>
+                  </a>
                   <p className="mt-2 text-[11px] uppercase tracking-wide text-[#7a7d77]">
                     {task.section?.name ?? 'No section'}
                   </p>

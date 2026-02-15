@@ -28,6 +28,7 @@ export type Database = {
           name?: string;
           icon?: string | null;
         };
+        Relationships: [];
       };
       workspace_members: {
         Row: {
@@ -45,6 +46,7 @@ export type Database = {
         Update: {
           role?: 'admin' | 'member';
         };
+        Relationships: [];
       };
       projects: {
         Row: {
@@ -73,6 +75,7 @@ export type Database = {
           privacy?: 'workspace_visible' | 'private';
           updated_at?: string;
         };
+        Relationships: [];
       };
       project_members: {
         Row: {
@@ -90,6 +93,7 @@ export type Database = {
         Update: {
           role?: 'editor' | 'viewer';
         };
+        Relationships: [];
       };
       project_sections: {
         Row: {
@@ -110,6 +114,7 @@ export type Database = {
           name?: string;
           sort_order?: number;
         };
+        Relationships: [];
       };
       project_statuses: {
         Row: {
@@ -136,6 +141,7 @@ export type Database = {
           sort_order?: number;
           is_done?: boolean;
         };
+        Relationships: [];
       };
       recurrences: {
         Row: {
@@ -164,6 +170,7 @@ export type Database = {
           next_run_at?: string | null;
           is_paused?: boolean;
         };
+        Relationships: [];
       };
       tasks: {
         Row: {
@@ -220,6 +227,7 @@ export type Database = {
           updated_at?: string;
           completed_at?: string | null;
         };
+        Relationships: [];
       };
       task_comments: {
         Row: {
@@ -239,6 +247,7 @@ export type Database = {
         Update: {
           body?: string;
         };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -281,6 +290,7 @@ export type Database = {
           read_at?: string | null;
           payload_json?: Json;
         };
+        Relationships: [];
       };
       task_attachments: {
         Row: {
@@ -306,6 +316,7 @@ export type Database = {
         Update: {
           file_name?: string;
         };
+        Relationships: [];
       };
       task_activity: {
         Row: {
@@ -327,7 +338,12 @@ export type Database = {
         Update: {
           payload_json?: Json;
         };
+        Relationships: [];
       };
     };
+    Views: {};
+    Functions: {};
+    Enums: {};
+    CompositeTypes: {};
   };
 };
