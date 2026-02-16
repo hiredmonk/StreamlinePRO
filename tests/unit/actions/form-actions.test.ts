@@ -69,6 +69,21 @@ describe('form actions', () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
+  it('throws specific workspace RLS error returned by action', async () => {
+    vi.mocked(createWorkspaceAction).mockResolvedValue({
+      ok: false,
+      error: 'new row violates row-level security policy for table "workspace_members"'
+    });
+
+    const formData = new FormData();
+    formData.set('name', 'Ops');
+
+    await expect(createWorkspaceFromForm(formData)).rejects.toThrow(
+      'new row violates row-level security policy for table "workspace_members"'
+    );
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
   it('creates project with privacy mapping and redirects', async () => {
     vi.mocked(createProjectAction).mockResolvedValue({
       ok: true,

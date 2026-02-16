@@ -86,4 +86,35 @@ describe('project actions', () => {
       expect(result.error).toBe('insert failed');
     }
   });
+
+  it('returns RLS error message when owner membership insert fails', async () => {
+    const { supabase } = createSupabaseMock([
+      { table: 'workspaces', response: { data: null } },
+      {
+        table: 'workspace_members',
+        response: {
+          data: null,
+          error: {
+            code: '42501',
+            message: 'new row violates row-level security policy for table "workspace_members"'
+          }
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: '11111111-1111-4111-8111-111111111111' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createWorkspaceAction({ name: 'Ops' });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe(
+        'new row violates row-level security policy for table "workspace_members"'
+      );
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });

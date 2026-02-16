@@ -10,6 +10,10 @@ describe('utils', () => {
     expect(toErrorMessage(new Error('boom'))).toBe('boom');
   });
 
+  it('returns message from plain error-like objects', () => {
+    expect(toErrorMessage({ message: 'rls violation' })).toBe('rls violation');
+  });
+
   it('returns generic message for unknown errors', () => {
     expect(toErrorMessage('boom')).toBe('Something went wrong.');
   });
