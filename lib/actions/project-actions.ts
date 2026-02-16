@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { createProjectSchema, createWorkspaceSchema } from '@/lib/validators/project';
@@ -14,23 +15,23 @@ export async function createWorkspaceAction(input: {
   try {
     const parsed = createWorkspaceSchema.parse(input);
     const { user, supabase } = await requireUser();
+    const workspaceId = randomUUID();
 
-    const { data: workspace, error } = await supabase
+    const { error } = await supabase
       .from('workspaces')
       .insert({
+        id: workspaceId,
         name: parsed.name,
         icon: parsed.icon ?? null,
         created_by: user.id
-      })
-      .select('id')
-      .single();
+      });
 
-    if (error || !workspace) {
+    if (error) {
       throw error ?? new Error('Workspace was not created.');
     }
 
     const { error: memberError } = await supabase.from('workspace_members').insert({
-      workspace_id: workspace.id,
+      workspace_id: workspaceId,
       user_id: user.id,
       role: 'admin'
     });
@@ -41,7 +42,7 @@ export async function createWorkspaceAction(input: {
 
     revalidatePath('/projects');
 
-    return { ok: true, data: { workspaceId: workspace.id } };
+    return { ok: true, data: { workspaceId } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

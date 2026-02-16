@@ -14,7 +14,7 @@ describe('project actions', () => {
 
   it('creates workspace and owner membership', async () => {
     const { supabase, history } = createSupabaseMock([
-      { table: 'workspaces', response: { data: { id: 'w1' } } },
+      { table: 'workspaces', response: { data: null } },
       { table: 'workspace_members', response: { data: null } }
     ]);
 
@@ -25,10 +25,22 @@ describe('project actions', () => {
 
     const result = await createWorkspaceAction({ name: 'Ops' });
 
-    expect(result).toEqual({ ok: true, data: { workspaceId: 'w1' } });
-    expect(history[1]?.chain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'admin' })
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected workspace creation to succeed.');
+    }
+
+    expect(result.data.workspaceId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
+
+    expect(history[0]?.chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: result.data.workspaceId, name: 'Ops' })
+    );
+    expect(history[1]?.chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ workspace_id: result.data.workspaceId, role: 'admin' })
+    );
+    expect(history[0]?.chain.select).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith('/projects');
   });
 

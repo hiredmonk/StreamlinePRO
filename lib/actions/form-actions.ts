@@ -18,9 +18,11 @@ export async function createWorkspaceFromForm(formData: FormData) {
     icon: String(formData.get('icon') ?? '') || undefined
   });
 
-  if (result.ok) {
-    redirect('/projects');
+  if (!result.ok) {
+    throw new Error(result.error);
   }
+
+  redirect('/projects');
 }
 
 export async function createProjectFromForm(formData: FormData) {

@@ -56,6 +56,19 @@ describe('form actions', () => {
     expect(redirect).toHaveBeenCalledWith('/projects');
   });
 
+  it('throws when workspace creation fails', async () => {
+    vi.mocked(createWorkspaceAction).mockResolvedValue({
+      ok: false,
+      error: 'workspace create failed'
+    });
+
+    const formData = new FormData();
+    formData.set('name', 'Ops');
+
+    await expect(createWorkspaceFromForm(formData)).rejects.toThrow('workspace create failed');
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
   it('creates project with privacy mapping and redirects', async () => {
     vi.mocked(createProjectAction).mockResolvedValue({
       ok: true,
