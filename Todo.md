@@ -101,7 +101,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - `addCommentAction` mention fan-out implemented and validated by unit tests (`tests/unit/actions/task-actions.test.ts`)
 - Due notification scheduler implemented (`lib/domain/inbox/scheduler.ts`) with protected job endpoint (`app/api/jobs/due-notifications/route.ts`) and unit coverage
 - Deployed OAuth start verified: `https://streamlinepro.online/auth/google` returns `307` to real Supabase project (`hdairxfxelyulwfjndox`) and `redirect_to=https://streamlinepro.online/auth/callback`
-- Deployed callback probe currently returns `307` to `https://0.0.0.0:3001/signin` (unexpected; indicates production origin/env mismatch to fix during redeploy validation)
+- Deployed callback probe now returns `307` to `https://streamlinepro.online/signin` (validated after `Deploy Production` run `22047623028` on 2026-02-16)
 - Auth redirect hardening added in `app/auth/callback/route.ts` and `app/auth/google/route.ts` with regression test coverage (`tests/unit/api/auth-routes.test.ts`)
 
 ## 13) PRD Acceptance Closure

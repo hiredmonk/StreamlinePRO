@@ -32,12 +32,14 @@ Pass criteria:
 Capture evidence:
 - Screenshot of authenticated page URL after login.
 
-Important current finding (2026-02-16):
-- `curl https://streamlinepro.online/auth/callback` currently redirects to `https://0.0.0.0:3001/signin` when no valid code is provided.
-- Code hardening exists in repository routes:
+Current production status (2026-02-16):
+- Callback redirect mismatch is resolved after deploy:
+  - `/auth/google` -> `307` with `redirect_to=https://streamlinepro.online/auth/callback`
+  - `/auth/callback` (no code) -> `307 https://streamlinepro.online/signin`
+- Code hardening is deployed in routes:
   - `app/auth/callback/route.ts`
   - `app/auth/google/route.ts`
-- Redeploy `main` via GitHub Actions `Deploy Production` workflow before final OAuth sign-off.
+- Remaining blocker is human E2E Google sign-in validation (Step 1 checklist above).
 
 ## 2) Populate Real Local Secrets
 Go here:
