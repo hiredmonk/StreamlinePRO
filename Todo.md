@@ -17,7 +17,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Sign-in page and sign-out flow added
 - [x] Supabase Google provider configured and verified in target project
 - [x] Deployed runtime env uses real Supabase project values (not placeholders)
-- [ ] End-to-end OAuth callback flow validated in deployed environment
+- [x] End-to-end OAuth callback flow validated in deployed environment
 
 ## 3) Workspace & Projects
 - [x] Workspace creation flow implemented
@@ -76,7 +76,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 ## 11) Environment & Deployment
 - [x] `.env.local.example` created
 - [x] `.env.local` placeholder template created
-- [ ] Real secrets populated locally
+- [x] Real secrets populated locally
 - [ ] Hosting platform/server runtime env vars configured with real values
 - [ ] Deployment smoke test completed
 
@@ -103,6 +103,8 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - Deployed OAuth start verified: `https://streamlinepro.online/auth/google` returns `307` to real Supabase project (`hdairxfxelyulwfjndox`) and `redirect_to=https://streamlinepro.online/auth/callback`
 - Deployed callback probe now returns `307` to `https://streamlinepro.online/signin` (validated after `Deploy Production` run `22047623028` on 2026-02-16)
 - Auth redirect hardening added in `app/auth/callback/route.ts` and `app/auth/google/route.ts` with regression test coverage (`tests/unit/api/auth-routes.test.ts`)
+- Human E2E sign-in validation confirmed on deployed app (Google auth success + post-login persistence) on 2026-02-16
+- Local real-secret startup validation passed: `COREPACK_HOME="$PWD/.corepack" corepack pnpm dev` booted cleanly and `/auth/callback` + `/auth/google` returned expected `307` responses on 2026-02-16
 
 ## 13) PRD Acceptance Closure
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
@@ -114,16 +116,12 @@ These are pending items that require your access, credentials, or product decisi
 - Runbook for one-by-one execution: `StreamlinePRO/HumanActionClosureRunbook.md`
 - Supporting benchmark profile: `StreamlinePRO/SearchBenchmarkProfile.md`
 - Supporting RLS matrix: `StreamlinePRO/RLSValidationMatrix.md`
-- [ ] End-to-end OAuth callback flow validated in deployed environment
-  - You need to complete a real sign-in flow on deployed URL (Google account consent + callback success path) and confirm result.
 - [ ] Production-grade email notification delivery implemented and verified
   - Default provider path is documented for Resend; you need to provide production credentials (`EMAIL_PROVIDER_API_KEY`, sender domain/address) and complete DNS verification.
 - [ ] Search performance benchmark (<1s target) validated with realistic data volume
   - Baseline profile is defined in `StreamlinePRO/SearchBenchmarkProfile.md`; you need to approve it (or adjust it) and run the benchmark on realistic data.
 - [ ] Multi-user RLS behavior validated via integration scenarios
   - Execution matrix is defined in `StreamlinePRO/RLSValidationMatrix.md`; you need to run it with real users and record pass/fail.
-- [ ] Real secrets populated locally
-  - You need to provide actual local secret values (non-placeholder) for required env vars.
 - [ ] Hosting platform/server runtime env vars configured with real values
   - You need to set or provide access to set runtime env vars in hosting/deployment platform.
 - [ ] Deployment smoke test completed

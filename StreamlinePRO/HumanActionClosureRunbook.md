@@ -5,8 +5,8 @@ This runbook converts pending human-owned items from `Todo.md` into exact, seque
 Default assumptions used: hosting on `Ubuntu + systemd` via GitHub Actions `deploy.yml`, email provider `Resend`, production URL `https://streamlinepro.online`.
 
 ## 0) Track Progress
-- [ ] 1. End-to-end OAuth callback flow validated in deployed environment
-- [ ] 2. Real secrets populated locally
+- [x] 1. End-to-end OAuth callback flow validated in deployed environment
+- [x] 2. Real secrets populated locally
 - [ ] 3. Hosting runtime env vars configured with real values
 - [ ] 4. Deployment smoke test completed
 - [ ] 5. Production-grade email notification delivery implemented and verified (Resend)
@@ -39,7 +39,7 @@ Current production status (2026-02-16):
 - Code hardening is deployed in routes:
   - `app/auth/callback/route.ts`
   - `app/auth/google/route.ts`
-- Remaining blocker is human E2E Google sign-in validation (Step 1 checklist above).
+- Human E2E Google sign-in validation is confirmed complete (user-validated).
 
 ## 2) Populate Real Local Secrets
 Go here:
@@ -64,6 +64,13 @@ Do this:
 
 Pass criteria:
 - Local app starts cleanly with real secrets.
+
+Verification status (2026-02-16):
+- `.env.local` populated with required keys (user-confirmed).
+- Local startup check passed with: `COREPACK_HOME="$PWD/.corepack" corepack pnpm dev`.
+- Runtime auth route probes succeeded locally:
+  - `GET /auth/callback` -> `307` to `/signin`
+  - `GET /auth/google` -> `307` to Supabase authorize URL with local callback target.
 
 ## 3) Configure Production Runtime Env Vars (Ubuntu + systemd)
 Go here:
