@@ -57,25 +57,25 @@ export async function createProjectAction(input: {
   try {
     const parsed = createProjectSchema.parse(input);
     const { user, supabase } = await requireUser();
+    const projectId = randomUUID();
 
-    const { data: project, error } = await supabase
+    const { error } = await supabase
       .from('projects')
       .insert({
+        id: projectId,
         workspace_id: parsed.workspaceId,
         name: parsed.name,
         description: parsed.description ?? null,
         privacy: parsed.privacy,
         created_by: user.id
-      })
-      .select('id')
-      .single();
+      });
 
-    if (error || !project) {
+    if (error) {
       throw error ?? new Error('Project was not created.');
     }
 
     const { error: memberError } = await supabase.from('project_members').insert({
-      project_id: project.id,
+      project_id: projectId,
       user_id: user.id,
       role: 'editor'
     });
@@ -86,7 +86,7 @@ export async function createProjectAction(input: {
 
     const { error: statusesError } = await supabase.from('project_statuses').insert(
       DEFAULT_PROJECT_STATUSES.map((status, index) => ({
-        project_id: project.id,
+        project_id: projectId,
         name: status.name,
         color: status.color,
         sort_order: index,
@@ -100,7 +100,7 @@ export async function createProjectAction(input: {
 
     const { error: sectionsError } = await supabase.from('project_sections').insert(
       DEFAULT_PROJECT_SECTIONS.map((name, index) => ({
-        project_id: project.id,
+        project_id: projectId,
         name,
         sort_order: index
       }))
@@ -111,9 +111,9 @@ export async function createProjectAction(input: {
     }
 
     revalidatePath('/projects');
-    revalidatePath(`/projects/${project.id}`);
+    revalidatePath(`/projects/${projectId}`);
 
-    return { ok: true, data: { projectId: project.id } };
+    return { ok: true, data: { projectId } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

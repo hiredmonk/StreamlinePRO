@@ -1,13 +1,19 @@
 import { createWorkspaceFromForm } from '@/lib/actions/form-actions';
 import { Button } from '@/app/components/ui/button';
 
-export function CreateWorkspaceForm() {
+export function CreateWorkspaceForm({
+  title = 'Create your first workspace',
+  description = 'Workspaces hold projects, teams, and permissions.'
+}: {
+  title?: string;
+  description?: string;
+}) {
   return (
     <form action={createWorkspaceFromForm} className="glass-panel mx-auto grid max-w-xl gap-3 p-5">
       <h2 className="text-2xl font-semibold text-[#1f241f]" style={{ fontFamily: 'var(--font-display)' }}>
-        Create your first workspace
+        {title}
       </h2>
-      <p className="text-sm text-[#5d625d]">Workspaces hold projects, teams, and permissions.</p>
+      <p className="text-sm text-[#5d625d]">{description}</p>
       <input
         required
         name="name"

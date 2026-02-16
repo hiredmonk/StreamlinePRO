@@ -36,9 +36,11 @@ export async function createProjectFromForm(formData: FormData) {
         : 'workspace_visible'
   });
 
-  if (result.ok) {
-    redirect(`/projects/${result.data.projectId}`);
+  if (!result.ok) {
+    throw new Error(result.error);
   }
+
+  redirect(`/projects/${result.data.projectId}`);
 }
 
 export async function createTaskFromForm(formData: FormData) {

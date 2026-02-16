@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
@@ -76,10 +77,12 @@ export async function createTaskAction(input: {
     }
 
     const nextSortOrder = (orderRows?.[0]?.sort_order ?? 0) + 1;
+    const taskId = randomUUID();
 
-    const { data: task, error } = await supabase
+    const { error } = await supabase
       .from('tasks')
       .insert({
+        id: taskId,
         project_id: parsed.projectId,
         section_id: parsed.sectionId ?? null,
         status_id: parsed.statusId,
@@ -94,37 +97,35 @@ export async function createTaskAction(input: {
         recurrence_id: parsed.recurrenceId ?? null,
         is_today: parsed.isToday ?? false,
         sort_order: nextSortOrder
-      })
-      .select('id, assignee_id, project_id')
-      .single();
+      });
 
-    if (error || !task) {
+    if (error) {
       throw error ?? new Error('Task was not created.');
     }
 
     await logActivity(supabase, {
-      taskId: task.id,
+      taskId,
       actorId: user.id,
       eventType: 'task_created',
       payload: { title: parsed.title }
     });
 
-    if (task.assignee_id && task.assignee_id !== user.id) {
-      const workspaceId = await getWorkspaceIdByProjectId(supabase, task.project_id);
+    if (parsed.assigneeId && parsed.assigneeId !== user.id) {
+      const workspaceId = await getWorkspaceIdByProjectId(supabase, parsed.projectId);
 
       await createNotification(supabase, {
         workspaceId,
-        userId: task.assignee_id,
+        userId: parsed.assigneeId,
         type: 'assignment',
         entityType: 'task',
-        entityId: task.id,
+        entityId: taskId,
         payload: { actorId: user.id, title: parsed.title }
       });
     }
 
-    revalidateTaskPaths(task.project_id);
+    revalidateTaskPaths(parsed.projectId);
 
-    return { ok: true, data: { taskId: task.id } };
+    return { ok: true, data: { taskId } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

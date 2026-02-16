@@ -46,7 +46,7 @@ describe('project actions', () => {
 
   it('creates project with default statuses and sections', async () => {
     const { supabase, history } = createSupabaseMock([
-      { table: 'projects', response: { data: { id: 'p1' } } },
+      { table: 'projects', response: { data: null } },
       { table: 'project_members', response: { data: null } },
       { table: 'project_statuses', response: { data: null } },
       { table: 'project_sections', response: { data: null } }
@@ -63,10 +63,39 @@ describe('project actions', () => {
       privacy: 'private'
     });
 
-    expect(result).toEqual({ ok: true, data: { projectId: 'p1' } });
-    expect(history[2]?.chain.insert.mock.calls[0]?.[0]).toHaveLength(4);
-    expect(history[3]?.chain.insert.mock.calls[0]?.[0]).toHaveLength(3);
-    expect(revalidatePath).toHaveBeenCalledWith('/projects/p1');
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected project creation to succeed.');
+    }
+
+    expect(result.data.projectId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    expect(history[0]?.chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: result.data.projectId,
+        workspace_id: '22222222-2222-4222-8222-222222222222',
+        name: 'Roadmap'
+      })
+    );
+    expect(history[0]?.chain.select).not.toHaveBeenCalled();
+    expect(history[1]?.chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project_id: result.data.projectId,
+        role: 'editor'
+      })
+    );
+
+    const statusRows = history[2]?.chain.insert.mock.calls[0]?.[0] as Array<{ project_id: string }>;
+    expect(statusRows).toHaveLength(4);
+    expect(statusRows.every((row) => row.project_id === result.data.projectId)).toBe(true);
+
+    const sectionRows = history[3]?.chain.insert.mock.calls[0]?.[0] as Array<{ project_id: string }>;
+    expect(sectionRows).toHaveLength(3);
+    expect(sectionRows.every((row) => row.project_id === result.data.projectId)).toBe(true);
+
+    expect(revalidatePath).toHaveBeenCalledWith('/projects');
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${result.data.projectId}`);
   });
 
   it('returns error object when workspace insert fails', async () => {
@@ -113,6 +142,41 @@ describe('project actions', () => {
     if (!result.ok) {
       expect(result.error).toBe(
         'new row violates row-level security policy for table "workspace_members"'
+      );
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('returns project member RLS error message when project membership insert fails', async () => {
+    const { supabase } = createSupabaseMock([
+      { table: 'projects', response: { data: null } },
+      {
+        table: 'project_members',
+        response: {
+          data: null,
+          error: {
+            code: '42501',
+            message: 'new row violates row-level security policy for table "project_members"'
+          }
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: '11111111-1111-4111-8111-111111111111' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createProjectAction({
+      workspaceId: '22222222-2222-4222-8222-222222222222',
+      name: 'Roadmap',
+      privacy: 'workspace_visible'
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe(
+        'new row violates row-level security policy for table "project_members"'
       );
     }
     expect(revalidatePath).not.toHaveBeenCalled();

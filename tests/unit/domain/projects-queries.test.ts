@@ -1,106 +1,158 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getProjectById,
   getProjectsForWorkspace,
-  getWorkspacesForUser
-} from '@/lib/domain/projects/queries';
-import { createSupabaseMock } from '@/tests/helpers/supabase-mock';
+  getWorkspacesForUser,
+} from "@/lib/domain/projects/queries";
+import { createSupabaseMock } from "@/tests/helpers/supabase-mock";
 
-describe('project queries', () => {
+describe("project queries", () => {
   beforeEach(() => {
     vi.useRealTimers();
   });
 
-  it('maps workspace membership rows into workspace summaries', async () => {
+  it("maps workspace membership rows into workspace summaries", async () => {
     const { supabase } = createSupabaseMock([
       {
-        table: 'workspace_members',
+        table: "workspace_members",
         response: {
           data: [
             {
-              role: 'admin',
+              role: "admin",
               workspace: [
                 {
-                  id: 'w1',
-                  name: 'Ops',
-                  icon: '⚙️'
-                }
-              ]
-            }
-          ]
-        }
-      }
+                  id: "w1",
+                  name: "Ops",
+                  icon: "⚙️",
+                },
+              ],
+            },
+          ],
+        },
+      },
     ]);
 
-    const workspaces = await getWorkspacesForUser(supabase as never, 'u1');
+    const workspaces = await getWorkspacesForUser(supabase as never, "u1");
 
     expect(workspaces).toEqual([
       {
-        id: 'w1',
-        name: 'Ops',
-        icon: '⚙️',
-        role: 'admin'
-      }
+        id: "w1",
+        name: "Ops",
+        icon: "⚙️",
+        role: "admin",
+      },
     ]);
   });
 
-  it('computes project task and overdue counts', async () => {
+  it("returns an empty workspace list when workspace_members is missing from schema cache", async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: "workspace_members",
+        response: {
+          data: null,
+          error: {
+            code: "PGRST205",
+            details: null,
+            hint: null,
+            message:
+              "Could not find the table 'public.workspace_members' in the schema cache",
+          },
+        },
+      },
+    ]);
+
+    const workspaces = await getWorkspacesForUser(supabase as never, "u1");
+    expect(workspaces).toEqual([]);
+  });
+
+  it("still throws when workspace membership query fails for other reasons", async () => {
+    const error = { code: "XX000", message: "db down" };
+    const { supabase } = createSupabaseMock([
+      {
+        table: "workspace_members",
+        response: {
+          data: null,
+          error,
+        },
+      },
+    ]);
+
+    await expect(getWorkspacesForUser(supabase as never, "u1")).rejects.toEqual(
+      error,
+    );
+  });
+
+  it("computes project task and overdue counts", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-02-15T12:00:00.000Z'));
+    vi.setSystemTime(new Date("2026-02-15T12:00:00.000Z"));
 
     const { supabase } = createSupabaseMock([
       {
-        table: 'projects',
+        table: "projects",
         response: {
           data: [
             {
-              id: 'p1',
-              workspace_id: 'w1',
-              name: 'Core',
+              id: "p1",
+              workspace_id: "w1",
+              name: "Core",
               description: null,
-              privacy: 'workspace_visible'
-            }
-          ]
-        }
+              privacy: "workspace_visible",
+            },
+          ],
+        },
       },
       {
-        table: 'tasks',
+        table: "tasks",
         response: {
           data: [
-            { project_id: 'p1', due_at: '2026-02-14T12:00:00.000Z', completed_at: null },
-            { project_id: 'p1', due_at: '2026-02-16T12:00:00.000Z', completed_at: null },
-            { project_id: 'p1', due_at: '2026-02-10T12:00:00.000Z', completed_at: '2026-02-11T12:00:00.000Z' }
-          ]
-        }
-      }
+            {
+              project_id: "p1",
+              due_at: "2026-02-14T12:00:00.000Z",
+              completed_at: null,
+            },
+            {
+              project_id: "p1",
+              due_at: "2026-02-16T12:00:00.000Z",
+              completed_at: null,
+            },
+            {
+              project_id: "p1",
+              due_at: "2026-02-10T12:00:00.000Z",
+              completed_at: "2026-02-11T12:00:00.000Z",
+            },
+          ],
+        },
+      },
     ]);
 
-    const projects = await getProjectsForWorkspace(supabase as never, 'w1');
+    const projects = await getProjectsForWorkspace(supabase as never, "w1");
 
     expect(projects[0]?.taskCount).toBe(3);
     expect(projects[0]?.overdueCount).toBe(1);
   });
 
-  it('returns null for unknown project id', async () => {
+  it("returns null for unknown project id", async () => {
     const { supabase } = createSupabaseMock([
       {
-        table: 'projects',
-        response: { data: null, error: null }
-      }
+        table: "projects",
+        response: { data: null, error: null },
+      },
     ]);
 
-    const project = await getProjectById(supabase as never, 'missing');
+    const project = await getProjectById(supabase as never, "missing");
     expect(project).toBeNull();
   });
 
-  it('throws when projects query fails', async () => {
+  it("throws when projects query fails", async () => {
     const { supabase } = createSupabaseMock([
       {
-        table: 'projects',
-        response: { data: null, error: new Error('db down') }
-      }
+        table: "projects",
+        response: { data: null, error: new Error("db down") },
+      },
     ]);
 
-    await expect(getProjectsForWorkspace(supabase as never, 'w1')).rejects.toThrow('db down');
+    await expect(
+      getProjectsForWorkspace(supabase as never, "w1"),
+    ).rejects.toThrow("db down");
   });
 });

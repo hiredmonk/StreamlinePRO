@@ -103,6 +103,20 @@ describe('form actions', () => {
     expect(redirect).toHaveBeenCalledWith('/projects/p1');
   });
 
+  it('throws when project creation fails', async () => {
+    vi.mocked(createProjectAction).mockResolvedValue({
+      ok: false,
+      error: 'project create failed'
+    });
+
+    const formData = new FormData();
+    formData.set('workspaceId', 'w1');
+    formData.set('name', 'Roadmap');
+
+    await expect(createProjectFromForm(formData)).rejects.toThrow('project create failed');
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
   it('parses datetime and priority for task creation', async () => {
     vi.mocked(createTaskAction).mockResolvedValue({
       ok: true,

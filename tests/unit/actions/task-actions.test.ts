@@ -48,10 +48,7 @@ describe('task actions', () => {
       { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       {
         table: 'tasks',
-        response: {
-          data: { id: ids.task, assignee_id: ids.userB, project_id: ids.project },
-          error: null
-        }
+        response: { data: null, error: null }
       },
       { table: 'task_activity', response: { data: null, error: null } },
       {
@@ -67,23 +64,37 @@ describe('task actions', () => {
 
     const result = await createTaskAction({
       projectId: ids.project,
-      title: 'Ship release'
+      title: 'Ship release',
+      assigneeId: ids.userB,
+      dueAt: '2026-03-01T10:30:00.000Z',
+      dueTimezone: 'Asia/Kolkata'
     });
 
-    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected task creation to succeed.');
+    }
+
+    expect(result.data.taskId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
     expect(history[3]?.chain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: result.data.taskId,
         status_id: ids.statusTodo,
         section_id: ids.section,
+        due_at: '2026-03-01T10:30:00.000Z',
+        due_timezone: 'Asia/Kolkata',
         sort_order: 5
       })
     );
+    expect(history[3]?.chain.select).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({
         type: 'assignment',
         userId: ids.userB,
-        entityId: ids.task
+        entityId: result.data.taskId
       })
     );
     expect(revalidatePath).toHaveBeenCalledWith('/my-tasks');
@@ -108,6 +119,40 @@ describe('task actions', () => {
     if (!result.ok) {
       expect(result.error).toBe('Project has no statuses configured.');
     }
+  });
+
+  it('returns task RLS error message when insert fails', async () => {
+    const { supabase } = createSupabaseMock([
+      { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
+      { table: 'project_sections', response: { data: { id: ids.section }, error: null } },
+      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
+      {
+        table: 'tasks',
+        response: {
+          data: null,
+          error: {
+            code: '42501',
+            message: 'new row violates row-level security policy for table "tasks"'
+          }
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createTaskAction({
+      projectId: ids.project,
+      title: 'Ship release'
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('new row violates row-level security policy for table "tasks"');
+    }
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('updates task and notifies new assignee', async () => {

@@ -11,11 +11,12 @@ vi.mock('next/link', () => ({
   )
 }));
 vi.mock('next/navigation', () => ({
-  usePathname: vi.fn(() => '/projects')
+  usePathname: vi.fn(() => '/projects'),
+  useSearchParams: vi.fn(() => new URLSearchParams('workspace=w1'))
 }));
 
 describe('AppSidebar', () => {
-  it('renders nav items, workspace list, and user email', () => {
+  it('renders nav items, workspace navigation links, and user email', () => {
     render(
       <AppSidebar
         userEmail="owner@example.com"
@@ -28,6 +29,9 @@ describe('AppSidebar', () => {
 
     expect(screen.getByText('Projects')).toBeInTheDocument();
     expect(screen.getByText('Ops')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New' })).toHaveAttribute('href', '/projects?workspace=new');
+    expect(screen.getByText('All workspaces').closest('a')).toHaveAttribute('href', '/projects');
+    expect(screen.getByText('Ops').closest('a')).toHaveAttribute('href', '/projects?workspace=w1');
     expect(screen.getByText('owner@example.com')).toBeInTheDocument();
   });
 });

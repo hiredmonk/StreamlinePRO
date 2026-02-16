@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Bell, FolderOpenDot, Home, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,10 @@ const navItems = [
 
 export function AppSidebar({ workspaces, userEmail }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isProjectsRoute = pathname.startsWith('/projects');
+  const activeWorkspaceId = isProjectsRoute ? searchParams.get('workspace') : null;
+  const allWorkspacesActive = isProjectsRoute && !activeWorkspaceId;
 
   return (
     <aside className="border-r border-[#dfd7c1] bg-[#fffdf6]/80 px-6 py-8 backdrop-blur-sm">
@@ -61,20 +65,55 @@ export function AppSidebar({ workspaces, userEmail }: SidebarProps) {
       </nav>
 
       <section className="mt-10">
-        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[#5f625f]">Workspaces</p>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#5f625f]">Workspaces</p>
+          <Link
+            href="/projects?workspace=new"
+            className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a4f2f] transition hover:text-[#6f3e25]"
+          >
+            New
+          </Link>
+        </div>
         <ul className="space-y-2">
-          {workspaces.map((workspace) => (
-            <li
-              key={workspace.id}
-              className="flex items-center justify-between rounded-lg border border-[#ddd4c0] bg-[#faf6eb] px-3 py-2"
+          <li>
+            <Link
+              href="/projects"
+              className={cn(
+                'flex items-center justify-between rounded-lg border px-3 py-2 transition',
+                allWorkspacesActive
+                  ? 'border-[#dd4b39] bg-[#fff3f1] text-[#912d22]'
+                  : 'border-[#ddd4c0] bg-[#faf6eb] text-[#2b2f2d] hover:border-[#d8cbb0] hover:bg-[#f6efde]'
+              )}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#2b2f2d]">{workspace.name}</p>
-                <p className="text-xs uppercase tracking-wide text-[#777167]">{workspace.role}</p>
+                <p className="truncate text-sm font-semibold">All workspaces</p>
+                <p className="text-xs uppercase tracking-wide text-[#777167]">{workspaces.length} total</p>
               </div>
-              <span className="text-lg">{workspace.icon ?? '◍'}</span>
-            </li>
-          ))}
+              <span className="text-lg">◌</span>
+            </Link>
+          </li>
+          {workspaces.map((workspace) => {
+            const isActive = activeWorkspaceId === workspace.id;
+            return (
+              <li key={workspace.id}>
+                <Link
+                  href={`/projects?workspace=${workspace.id}`}
+                  className={cn(
+                    'flex items-center justify-between rounded-lg border px-3 py-2 transition',
+                    isActive
+                      ? 'border-[#dd4b39] bg-[#fff3f1] text-[#912d22]'
+                      : 'border-[#ddd4c0] bg-[#faf6eb] text-[#2b2f2d] hover:border-[#d8cbb0] hover:bg-[#f6efde]'
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{workspace.name}</p>
+                    <p className="text-xs uppercase tracking-wide text-[#777167]">{workspace.role}</p>
+                  </div>
+                  <span className="text-lg">{workspace.icon ?? '◍'}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
