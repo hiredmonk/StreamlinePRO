@@ -21,15 +21,16 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 const ids = {
   userA: '11111111-1111-4111-8111-111111111111',
   userB: '22222222-2222-4222-8222-222222222222',
-  workspace: '33333333-3333-4333-8333-333333333333',
-  project: '44444444-4444-4444-8444-444444444444',
-  statusTodo: '55555555-5555-4555-8555-555555555555',
-  statusDone: '66666666-6666-4666-8666-666666666666',
-  section: '77777777-7777-4777-8777-777777777777',
-  task: '88888888-8888-4888-8888-888888888888',
-  recurrence: '99999999-9999-4999-8999-999999999999',
-  comment: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  nextTask: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  userC: '33333333-3333-4333-8333-333333333333',
+  workspace: '44444444-4444-4444-8444-444444444444',
+  project: '55555555-5555-4555-8555-555555555555',
+  statusTodo: '66666666-6666-4666-8666-666666666666',
+  statusDone: '77777777-7777-4777-8777-777777777777',
+  section: '88888888-8888-4888-8888-888888888888',
+  task: '99999999-9999-4999-8999-999999999999',
+  recurrence: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  comment: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  nextTask: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 };
 
 describe('task actions', () => {
@@ -277,6 +278,13 @@ describe('task actions', () => {
       {
         table: 'projects',
         response: { data: { workspace_id: ids.workspace }, error: null }
+      },
+      {
+        table: 'workspace_members',
+        response: {
+          data: [{ user_id: ids.userA }, { user_id: ids.userB }],
+          error: null
+        }
       }
     ]);
 
@@ -293,6 +301,63 @@ describe('task actions', () => {
       expect.objectContaining({
         type: 'mention',
         userId: ids.userB,
+        entityType: 'comment'
+      })
+    );
+  });
+
+  it('fans out mention notifications to all mentioned users in workspace', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: { id: ids.task, project_id: ids.project, assignee_id: ids.userB },
+          error: null
+        }
+      },
+      {
+        table: 'task_comments',
+        response: { data: { id: ids.comment }, error: null }
+      },
+      { table: 'task_activity', response: { data: null, error: null } },
+      {
+        table: 'projects',
+        response: { data: { workspace_id: ids.workspace }, error: null }
+      },
+      {
+        table: 'workspace_members',
+        response: {
+          data: [{ user_id: ids.userA }, { user_id: ids.userB }, { user_id: ids.userC }],
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await addCommentAction({
+      taskId: ids.task,
+      body: `Please review @[${ids.userB}] and @${ids.userC.slice(0, 12)}`
+    });
+
+    expect(result).toEqual({ ok: true, data: { commentId: ids.comment } });
+    expect(createNotification).toHaveBeenCalledTimes(2);
+    expect(createNotification).toHaveBeenCalledWith(
+      supabase,
+      expect.objectContaining({
+        type: 'mention',
+        userId: ids.userB,
+        entityType: 'comment'
+      })
+    );
+    expect(createNotification).toHaveBeenCalledWith(
+      supabase,
+      expect.objectContaining({
+        type: 'mention',
+        userId: ids.userC,
         entityType: 'comment'
       })
     );

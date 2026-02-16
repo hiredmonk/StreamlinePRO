@@ -363,11 +363,32 @@ export async function addCommentAction(input: {
     });
 
     const workspaceId = await getWorkspaceIdByProjectId(supabase, task.project_id);
-    if (task.assignee_id && task.assignee_id !== user.id) {
+    const hasMentionSyntax = parsed.body.includes('@');
+    const mentionedUserIds = hasMentionSyntax
+      ? await resolveMentionedUserIds(supabase, workspaceId, parsed.body)
+      : new Set<string>();
+
+    // Preserve assignee notification behavior while fanning out real mentions.
+    if (task.assignee_id && task.assignee_id !== user.id && !mentionedUserIds.has(task.assignee_id)) {
       await createNotification(supabase, {
         workspaceId,
         userId: task.assignee_id,
-        type: parsed.body.includes('@') ? 'mention' : 'comment',
+        type: hasMentionSyntax ? 'mention' : 'comment',
+        entityType: 'comment',
+        entityId: comment.id,
+        payload: { taskId: parsed.taskId, actorId: user.id }
+      });
+    }
+
+    for (const mentionedUserId of mentionedUserIds) {
+      if (mentionedUserId === user.id) {
+        continue;
+      }
+
+      await createNotification(supabase, {
+        workspaceId,
+        userId: mentionedUserId,
+        type: 'mention',
         entityType: 'comment',
         entityId: comment.id,
         payload: { taskId: parsed.taskId, actorId: user.id }
@@ -610,4 +631,82 @@ function revalidateTaskPaths(projectId: string) {
   revalidatePath('/projects');
   revalidatePath(`/projects/${projectId}`);
   revalidatePath('/inbox');
+}
+
+async function resolveMentionedUserIds(
+  supabase: Awaited<ReturnType<typeof requireUser>>['supabase'],
+  workspaceId: string,
+  body: string
+) {
+  const mentionSelectors = extractMentionSelectors(body);
+  if (!mentionSelectors.exactIds.size && !mentionSelectors.idPrefixes.size) {
+    return new Set<string>();
+  }
+
+  const { data: workspaceMembers, error } = await supabase
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', workspaceId);
+
+  if (error) {
+    throw error;
+  }
+
+  const mentionedUserIds = new Set<string>();
+
+  for (const member of workspaceMembers ?? []) {
+    const userId = member.user_id;
+    const normalizedUserId = userId.toLowerCase();
+
+    if (mentionSelectors.exactIds.has(normalizedUserId)) {
+      mentionedUserIds.add(userId);
+      continue;
+    }
+
+    for (const prefix of mentionSelectors.idPrefixes) {
+      if (normalizedUserId.startsWith(prefix)) {
+        mentionedUserIds.add(userId);
+        break;
+      }
+    }
+  }
+
+  return mentionedUserIds;
+}
+
+function extractMentionSelectors(body: string) {
+  const exactIds = new Set<string>();
+  const idPrefixes = new Set<string>();
+
+  const bracketedMentionRegex = /@\[([0-9a-fA-F-]{36})\]/g;
+  const inlineMentionRegex = /@([0-9a-fA-F-]{8,36})\b/g;
+
+  for (const match of body.matchAll(bracketedMentionRegex)) {
+    const candidate = match[1]?.toLowerCase();
+    if (candidate && isUuid(candidate)) {
+      exactIds.add(candidate);
+    }
+  }
+
+  for (const match of body.matchAll(inlineMentionRegex)) {
+    const candidate = match[1]?.toLowerCase();
+    if (!candidate) {
+      continue;
+    }
+
+    if (isUuid(candidate)) {
+      exactIds.add(candidate);
+      continue;
+    }
+
+    if (candidate.length >= 8) {
+      idPrefixes.add(candidate);
+    }
+  }
+
+  return { exactIds, idPrefixes };
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
