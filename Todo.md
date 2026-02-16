@@ -77,7 +77,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] `.env.local.example` created
 - [x] `.env.local` placeholder template created
 - [x] Real secrets populated locally
-- [ ] Hosting platform/server runtime env vars configured with real values
+- [x] Hosting platform/server runtime env vars configured with real values
 - [ ] Deployment smoke test completed
 
 ## 12) Quality Gates
@@ -105,6 +105,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - Auth redirect hardening added in `app/auth/callback/route.ts` and `app/auth/google/route.ts` with regression test coverage (`tests/unit/api/auth-routes.test.ts`)
 - Human E2E sign-in validation confirmed on deployed app (Google auth success + post-login persistence) on 2026-02-16
 - Local real-secret startup validation passed: `COREPACK_HOME="$PWD/.corepack" corepack pnpm dev` booted cleanly and `/auth/callback` + `/auth/google` returned expected `307` responses on 2026-02-16
+- Production runtime env audit passed on 2026-02-16: active file `/home/ubuntu/streamlinepro/.env.local`, required keys set/non-placeholder, `/auth/google` and `/auth/callback` redirects verified
 
 ## 13) PRD Acceptance Closure
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
@@ -122,8 +123,6 @@ These are pending items that require your access, credentials, or product decisi
   - Baseline profile is defined in `StreamlinePRO/SearchBenchmarkProfile.md`; you need to approve it (or adjust it) and run the benchmark on realistic data.
 - [ ] Multi-user RLS behavior validated via integration scenarios
   - Execution matrix is defined in `StreamlinePRO/RLSValidationMatrix.md`; you need to run it with real users and record pass/fail.
-- [ ] Hosting platform/server runtime env vars configured with real values
-  - You need to set or provide access to set runtime env vars in hosting/deployment platform.
 - [ ] Deployment smoke test completed
   - You need to provide target deployment endpoint/environment access and confirm smoke-test checklist scope.
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`

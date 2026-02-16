@@ -7,7 +7,7 @@ Default assumptions used: hosting on `Ubuntu + systemd` via GitHub Actions `depl
 ## 0) Track Progress
 - [x] 1. End-to-end OAuth callback flow validated in deployed environment
 - [x] 2. Real secrets populated locally
-- [ ] 3. Hosting runtime env vars configured with real values
+- [x] 3. Hosting runtime env vars configured with real values
 - [ ] 4. Deployment smoke test completed
 - [ ] 5. Production-grade email notification delivery implemented and verified (Resend)
 - [ ] 6. Search benchmark profile approved (realistic data volume)
@@ -74,7 +74,7 @@ Verification status (2026-02-16):
 
 ## 3) Configure Production Runtime Env Vars (Ubuntu + systemd)
 Go here:
-- Server env file at deployment path (default `/home/ubuntu/streamlinepro/.env`).
+- Active runtime env file (current): `/home/ubuntu/streamlinepro/.env.local`.
 - GitHub Actions workflow: `.github/workflows/deploy.yml`.
 
 Do this:
@@ -88,6 +88,25 @@ Do this:
 
 Pass criteria:
 - Production env has real values and auth redirect is correct.
+
+Verification status (2026-02-16):
+- Runtime service verified at `/etc/systemd/system/streamlinepro.service` (Next.js on port `3001`).
+- Active env file on server is `.env.local` (read-only SSH audit).
+- Required keys are all set with non-placeholder values:
+  - `NEXT_PUBLIC_APP_URL`
+  - `NEXT_PUBLIC_DEFAULT_TIMEZONE`
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `SUPABASE_JWT_SECRET`
+  - `SUPABASE_AUTH_GOOGLE_CLIENT_ID`
+  - `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET`
+  - `SUPABASE_STORAGE_BUCKET_ATTACHMENTS`
+  - `EMAIL_PROVIDER_API_KEY`
+  - `EMAIL_FROM_ADDRESS`
+- Live production probes pass:
+  - `/auth/google` -> Supabase authorize URL with `redirect_to=https://streamlinepro.online/auth/callback`
+  - `/auth/callback` -> `307 https://streamlinepro.online/signin`.
 
 ## 4) Complete Deployment Smoke Test
 Go here:
