@@ -65,10 +65,15 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
           Board View
         </h3>
         <p className="text-xs uppercase tracking-[0.16em] text-[#6b6c67]">
+          Manage columns in Workflow settings ·{' '}
           {projectId.slice(0, 8)} {isPending ? '· syncing' : ''}
         </p>
       </div>
-      <div className="grid gap-3 lg:grid-cols-4">
+      <div className="overflow-x-auto pb-1">
+        <div
+          className="grid min-w-max gap-3"
+          style={{ gridTemplateColumns: `repeat(${Math.max(statuses.length, 1)}, minmax(220px, 1fr))` }}
+        >
         {groupedByStatus.map((column) => (
           <div
             key={column.id}
@@ -119,6 +124,7 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
             </ul>
           </div>
         ))}
+        </div>
       </div>
     </section>
   );

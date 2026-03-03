@@ -64,4 +64,27 @@ describe('BoardView', () => {
       expect(moveTaskAction).toHaveBeenCalledWith({ id: 't1', statusId: 'done', sortOrder: 1 });
     });
   });
+
+  it('renders all columns when project has more than four statuses', () => {
+    render(
+      <BoardView
+        projectId="p2"
+        drawerPathname="/projects/p2"
+        statuses={[
+          { id: 's1', name: 'To do', color: '#111111' },
+          { id: 's2', name: 'Doing', color: '#222222' },
+          { id: 's3', name: 'Waiting', color: '#333333' },
+          { id: 's4', name: 'Review', color: '#444444' },
+          { id: 's5', name: 'Done', color: '#555555' }
+        ]}
+        tasks={[]}
+      />
+    );
+
+    expect(screen.getByText('To do')).toBeInTheDocument();
+    expect(screen.getByText('Doing')).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
+  });
 });

@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createProjectAction, createWorkspaceAction } from '@/lib/actions/project-actions';
+import {
+  createProjectAction,
+  createProjectStatusAction,
+  createWorkspaceAction,
+  deleteProjectStatusAction,
+  reorderProjectStatusesAction,
+  updateProjectStatusAction
+} from '@/lib/actions/project-actions';
 import { createSupabaseMock } from '@/tests/helpers/supabase-mock';
 import { requireUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
@@ -116,6 +123,36 @@ describe('project actions', () => {
     }
   });
 
+  it('cleans up created project when default initialization fails', async () => {
+    const { supabase, history } = createSupabaseMock([
+      { table: 'projects', response: { data: null } },
+      { table: 'projects', response: { data: null } },
+      { table: 'project_members', response: { data: null } },
+      {
+        table: 'project_statuses',
+        response: { data: null, error: new Error('status init failed') }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: '11111111-1111-4111-8111-111111111111' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createProjectAction({
+      workspaceId: '22222222-2222-4222-8222-222222222222',
+      name: 'Roadmap',
+      privacy: 'workspace_visible'
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('status init failed');
+    }
+    expect(history[3]?.chain.delete).toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
   it('returns RLS error message when owner membership insert fails', async () => {
     const { supabase } = createSupabaseMock([
       { table: 'workspaces', response: { data: null } },
@@ -150,6 +187,7 @@ describe('project actions', () => {
   it('returns project member RLS error message when project membership insert fails', async () => {
     const { supabase } = createSupabaseMock([
       { table: 'projects', response: { data: null } },
+      { table: 'projects', response: { data: null } },
       {
         table: 'project_members',
         response: {
@@ -180,5 +218,297 @@ describe('project actions', () => {
       );
     }
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('creates a project status with unique name and next sort order', async () => {
+    const doneStatusId = '99999999-9999-4999-8999-999999999999';
+    const projectId = '11111111-1111-4111-8111-111111111111';
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: doneStatusId,
+              project_id: projectId,
+              name: 'Done',
+              color: '#111111',
+              is_done: true,
+              sort_order: 0
+            }
+          ]
+        }
+      },
+      { table: 'project_statuses', response: { data: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createProjectStatusAction({
+      projectId,
+      name: 'Blocked',
+      color: '#222222'
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected status creation to succeed.');
+    }
+
+    expect(history[1]?.chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project_id: projectId,
+        name: 'Blocked',
+        color: '#222222',
+        sort_order: 1
+      })
+    );
+  });
+
+  it('rejects duplicate project status names', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: 's1',
+              project_id: 'p1',
+              name: 'Blocked',
+              color: '#111111',
+              is_done: false,
+              sort_order: 0
+            }
+          ]
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createProjectStatusAction({
+      projectId: '11111111-1111-4111-8111-111111111111',
+      name: ' blocked '
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Status name already exists in this project.');
+    }
+  });
+
+  it('requires at least one done status when adding a lane', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: { data: [] }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createProjectStatusAction({
+      projectId: '11111111-1111-4111-8111-111111111111',
+      name: 'Backlog',
+      isDone: false
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('At least one done status is required.');
+    }
+  });
+
+  it('prevents removing the last done status', async () => {
+    const doneStatusId = '11111111-1111-4111-8111-111111111111';
+    const openStatusId = '22222222-2222-4222-8222-222222222222';
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: {
+            id: doneStatusId,
+            project_id: 'p1',
+            name: 'Done',
+            is_done: true
+          }
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: doneStatusId,
+              project_id: 'p1',
+              name: 'Done',
+              color: '#1b7f4b',
+              is_done: true,
+              sort_order: 1
+            },
+            {
+              id: openStatusId,
+              project_id: 'p1',
+              name: 'Doing',
+              color: '#1565c0',
+              is_done: false,
+              sort_order: 0
+            }
+          ]
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await updateProjectStatusAction({
+      id: doneStatusId,
+      isDone: false
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('At least one done status is required.');
+    }
+  });
+
+  it('reorders statuses with exact ids', async () => {
+    const statusA = '11111111-1111-4111-8111-111111111111';
+    const statusB = '22222222-2222-4222-8222-222222222222';
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: statusA,
+              project_id: '11111111-1111-4111-8111-111111111111',
+              name: 'To do',
+              color: '#111111',
+              is_done: false,
+              sort_order: 0
+            },
+            {
+              id: statusB,
+              project_id: '11111111-1111-4111-8111-111111111111',
+              name: 'Doing',
+              color: '#222222',
+              is_done: false,
+              sort_order: 1
+            }
+          ]
+        }
+      },
+      { table: 'project_statuses', response: { data: null } },
+      { table: 'project_statuses', response: { data: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await reorderProjectStatusesAction({
+      projectId: '11111111-1111-4111-8111-111111111111',
+      orderedStatusIds: [statusB, statusA]
+    });
+
+    expect(result.ok).toBe(true);
+    expect(history[1]?.chain.update).toHaveBeenCalledWith({ sort_order: 0 });
+    expect(history[2]?.chain.update).toHaveBeenCalledWith({ sort_order: 1 });
+  });
+
+  it('deletes a status and reassigns tasks to fallback', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: {
+            id: 's1',
+            project_id: 'p1',
+            is_done: false
+          }
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: {
+            id: 's2',
+            project_id: 'p1',
+            is_done: true
+          }
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: 's1',
+              project_id: 'p1',
+              name: 'To do',
+              color: '#111111',
+              is_done: false,
+              sort_order: 0
+            },
+            {
+              id: 's2',
+              project_id: 'p1',
+              name: 'Done',
+              color: '#1b7f4b',
+              is_done: true,
+              sort_order: 1
+            }
+          ]
+        }
+      },
+      { table: 'tasks', response: { data: null } },
+      { table: 'project_statuses', response: { data: null } },
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            {
+              id: 's2',
+              project_id: 'p1',
+              name: 'Done',
+              color: '#1b7f4b',
+              is_done: true,
+              sort_order: 1
+            }
+          ]
+        }
+      },
+      { table: 'project_statuses', response: { data: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: supabase as never
+    });
+
+    const result = await deleteProjectStatusAction({
+      id: '11111111-1111-4111-8111-111111111111',
+      fallbackStatusId: '22222222-2222-4222-8222-222222222222'
+    });
+
+    expect(result.ok).toBe(true);
+    expect(history[3]?.chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status_id: '22222222-2222-4222-8222-222222222222' })
+    );
+    expect(history[4]?.chain.delete).toHaveBeenCalled();
   });
 });

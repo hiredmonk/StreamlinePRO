@@ -1,7 +1,14 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { createWorkspaceAction, createProjectAction } from '@/lib/actions/project-actions';
+import {
+  createWorkspaceAction,
+  createProjectAction,
+  createProjectStatusAction,
+  deleteProjectStatusAction,
+  reorderProjectStatusesAction,
+  updateProjectStatusAction
+} from '@/lib/actions/project-actions';
 import {
   addCommentAction,
   completeTaskAction,
@@ -41,6 +48,60 @@ export async function createProjectFromForm(formData: FormData) {
   }
 
   redirect(`/projects/${result.data.projectId}`);
+}
+
+export async function createProjectStatusFromForm(formData: FormData) {
+  const result = await createProjectStatusAction({
+    projectId: String(formData.get('projectId') ?? ''),
+    name: String(formData.get('name') ?? ''),
+    color: String(formData.get('color') ?? '') || undefined,
+    isDone: formData.get('isDone') === 'on'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateProjectStatusFromForm(formData: FormData) {
+  const statusId = String(formData.get('id') ?? '');
+  const result = await updateProjectStatusAction({
+    id: statusId,
+    name: String(formData.get('name') ?? ''),
+    color: String(formData.get('color') ?? ''),
+    isDone: formData.get('isDone') === 'on'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function reorderProjectStatusesFromForm(formData: FormData) {
+  const orderedStatusIds = formData
+    .getAll('orderedStatusIds')
+    .map((value) => String(value))
+    .filter(Boolean);
+
+  const result = await reorderProjectStatusesAction({
+    projectId: String(formData.get('projectId') ?? ''),
+    orderedStatusIds
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function deleteProjectStatusFromForm(formData: FormData) {
+  const result = await deleteProjectStatusAction({
+    id: String(formData.get('id') ?? ''),
+    fallbackStatusId: String(formData.get('fallbackStatusId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function createTaskFromForm(formData: FormData) {

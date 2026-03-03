@@ -4,6 +4,7 @@ import { QuickAddForm } from '@/app/components/tasks/quick-add-form';
 import { TaskRow } from '@/app/components/tasks/task-row';
 import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
 import { BoardView } from '@/app/components/projects/board-view';
+import { WorkflowStatusManager } from '@/app/components/projects/workflow-status-manager';
 import { requireUser } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import {
@@ -100,6 +101,16 @@ export default async function ProjectDetailPage({
             }
           ]}
           preselectedProjectId={project.id}
+        />
+
+        <WorkflowStatusManager
+          projectId={project.id}
+          statuses={statuses.map((status) => ({
+            id: status.id,
+            name: status.name,
+            color: status.color,
+            is_done: status.is_done
+          }))}
         />
 
         {tasks.length ? (

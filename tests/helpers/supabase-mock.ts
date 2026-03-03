@@ -22,6 +22,7 @@ type Chain = {
   ilike: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
   upload: ReturnType<typeof vi.fn>;
   createSignedUrl: ReturnType<typeof vi.fn>;
   then: (resolve: (value: QueryResponse) => void, reject?: (reason?: unknown) => void) => Promise<void>;
@@ -49,6 +50,7 @@ export function createQueryChain(response?: QueryResponse): Chain {
   chain.ilike = vi.fn(() => chain);
   chain.insert = vi.fn(() => chain);
   chain.update = vi.fn(() => chain);
+  chain.delete = vi.fn(() => chain);
   chain.upload = vi.fn(async () => normalized);
   chain.createSignedUrl = vi.fn(async () => normalized);
   chain.then = (resolve, reject) => Promise.resolve(normalized).then(resolve, reject);

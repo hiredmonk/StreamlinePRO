@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommentFromForm,
+  createProjectStatusFromForm,
   createProjectFromForm,
   createTaskFromForm,
   createWorkspaceFromForm,
+  deleteProjectStatusFromForm,
   markNotificationReadFromForm,
+  reorderProjectStatusesFromForm,
+  updateProjectStatusFromForm,
   updateTaskFromForm
 } from '@/lib/actions/form-actions';
 import { redirect } from 'next/navigation';
@@ -14,7 +18,11 @@ import {
   updateTaskAction
 } from '@/lib/actions/task-actions';
 import {
+  createProjectStatusAction,
   createProjectAction,
+  deleteProjectStatusAction,
+  reorderProjectStatusesAction,
+  updateProjectStatusAction,
   createWorkspaceAction
 } from '@/lib/actions/project-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
@@ -22,7 +30,11 @@ import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 vi.mock('@/lib/actions/project-actions', () => ({
   createWorkspaceAction: vi.fn(),
-  createProjectAction: vi.fn()
+  createProjectAction: vi.fn(),
+  createProjectStatusAction: vi.fn(),
+  updateProjectStatusAction: vi.fn(),
+  reorderProjectStatusesAction: vi.fn(),
+  deleteProjectStatusAction: vi.fn()
 }));
 vi.mock('@/lib/actions/task-actions', () => ({
   createTaskAction: vi.fn(),
@@ -136,6 +148,62 @@ describe('form actions', () => {
     expect(payload?.dueAt).toContain('2026-02-15T');
     expect(payload?.priority).toBe('high');
     expect(payload?.isToday).toBe(true);
+  });
+
+  it('forwards project workflow status forms', async () => {
+    vi.mocked(createProjectStatusAction).mockResolvedValue({
+      ok: true,
+      data: { statusId: 's1' }
+    });
+    vi.mocked(updateProjectStatusAction).mockResolvedValue({
+      ok: true,
+      data: { statusId: 's1' }
+    });
+    vi.mocked(reorderProjectStatusesAction).mockResolvedValue({
+      ok: true,
+      data: { projectId: 'p1' }
+    });
+    vi.mocked(deleteProjectStatusAction).mockResolvedValue({
+      ok: true,
+      data: { deletedStatusId: 's1' }
+    });
+
+    const createForm = new FormData();
+    createForm.set('projectId', 'p1');
+    createForm.set('name', 'Blocked');
+    createForm.set('color', '#222222');
+    createForm.set('isDone', 'on');
+    await createProjectStatusFromForm(createForm);
+
+    const updateForm = new FormData();
+    updateForm.set('id', 's1');
+    updateForm.set('name', 'Waiting');
+    updateForm.set('color', '#333333');
+    await updateProjectStatusFromForm(updateForm);
+
+    const reorderForm = new FormData();
+    reorderForm.set('projectId', 'p1');
+    reorderForm.append('orderedStatusIds', 's2');
+    reorderForm.append('orderedStatusIds', 's1');
+    await reorderProjectStatusesFromForm(reorderForm);
+
+    const deleteForm = new FormData();
+    deleteForm.set('id', 's1');
+    deleteForm.set('fallbackStatusId', 's2');
+    await deleteProjectStatusFromForm(deleteForm);
+
+    expect(createProjectStatusAction).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'p1', name: 'Blocked', isDone: true })
+    );
+    expect(updateProjectStatusAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 's1', name: 'Waiting' })
+    );
+    expect(reorderProjectStatusesAction).toHaveBeenCalledWith(
+      expect.objectContaining({ orderedStatusIds: ['s2', 's1'] })
+    );
+    expect(deleteProjectStatusAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 's1', fallbackStatusId: 's2' })
+    );
   });
 
   it('throws when task update action fails', async () => {

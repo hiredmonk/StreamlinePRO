@@ -62,6 +62,10 @@ Then verify:
 - `pnpm test` - unit tests
 - `pnpm test:e2e` - Playwright tests
 
+## Workflow Guides
+
+- Product + CI workflow extension guide: `docs/WorkflowAuthoringGuide.md`
+
 ## Dependency Compatibility
 
 - Supabase dependencies are pinned for CI stability:

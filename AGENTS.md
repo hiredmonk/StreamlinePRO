@@ -10,6 +10,7 @@ Use these commands for contributor workflow:
 - `sed -n '1,120p' PRD/StreamlinePRO.md`: review PRD sections before editing.
 - `npx markdownlint-cli2 "**/*.md"`: lint Markdown (if Node tooling is available).
 - `npx prettier --check "**/*.md"`: check Markdown formatting.
+- `sed -n '1,220p' docs/WorkflowAuthoringGuide.md`: review workflow extension rules before adding product/CI workflows.
 
 ## Backend Access & Server Safety
 Backend server access:
