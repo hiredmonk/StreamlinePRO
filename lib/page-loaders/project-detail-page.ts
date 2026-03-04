@@ -10,6 +10,7 @@ import { loadTaskDrawerDataForTask } from '@/lib/page-loaders/task-drawer';
 import { buildProjectSetupGuide, type ProjectSetupGuide } from '@/lib/view-models/onboarding';
 
 export type ProjectDetailPageData = {
+  currentUserId: string;
   project: NonNullable<Awaited<ReturnType<typeof getProjectById>>>;
   tasks: Awaited<ReturnType<typeof getProjectTasks>>;
   assignees: Awaited<ReturnType<typeof loadProjectAssignees>>[string];
@@ -18,13 +19,20 @@ export type ProjectDetailPageData = {
   selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerDataForTask>> | null;
   selectedTaskMode: 'details' | 'completed';
   recurringNotice: string | null;
+  templateAuthoring:
+    | {
+        workspaceId: string;
+        projectId: string;
+        actorUserId: string;
+      }
+    | null;
 };
 
 export async function loadProjectDetailPageData(
   projectId: string,
   search: { task?: string; completed?: string; recurring?: string }
 ): Promise<ProjectDetailPageData | null> {
-  const { supabase } = await requireUser();
+  const { user, supabase } = await requireUser();
   const project = await getProjectById(supabase, projectId);
 
   if (!project) {
@@ -45,6 +53,7 @@ export async function loadProjectDetailPageData(
       : null;
 
   return {
+    currentUserId: user.id,
     project,
     tasks,
     assignees: assigneesByProject[project.id] ?? [],
@@ -55,6 +64,14 @@ export async function loadProjectDetailPageData(
     recurringNotice:
       search.recurring === '1'
         ? 'The recurring series already generated the next task.'
+        : null,
+    templateAuthoring:
+      project.privacy === 'workspace_visible'
+        ? {
+            workspaceId: project.workspaceId,
+            projectId: project.id,
+            actorUserId: user.id
+          }
         : null
   };
 }

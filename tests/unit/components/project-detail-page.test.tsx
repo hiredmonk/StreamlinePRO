@@ -16,6 +16,9 @@ vi.mock('@/app/components/tasks/quick-add-form', () => ({
 vi.mock('@/app/components/projects/project-setup-guide', () => ({
   ProjectSetupGuidePanel: () => <section id="project-setup-guide">Project setup</section>
 }));
+vi.mock('@/app/components/projects/save-project-template-form', () => ({
+  SaveProjectTemplateForm: () => <form id="save-project-template-form">Save template</form>
+}));
 vi.mock('@/app/components/projects/workflow-status-manager', () => ({
   WorkflowStatusManager: ({ id }: { id?: string }) => <section id={id}>Workflow</section>
 }));
@@ -35,6 +38,7 @@ vi.mock('@/app/components/ui/empty-state', () => ({
 describe('ProjectDetailPage', () => {
   it('renders the setup guide before the quick add target for empty projects', async () => {
     vi.mocked(loadProjectDetailPageData).mockResolvedValue({
+      currentUserId: 'u1',
       project: {
         id: 'p1',
         workspaceId: 'w1',
@@ -63,7 +67,12 @@ describe('ProjectDetailPage', () => {
       },
       selectedTaskPanel: null,
       selectedTaskMode: 'details',
-      recurringNotice: null
+      recurringNotice: null,
+      templateAuthoring: {
+        workspaceId: 'w1',
+        projectId: 'p1',
+        actorUserId: 'u1'
+      }
     } as never);
 
     const { container } = render(

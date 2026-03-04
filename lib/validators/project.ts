@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 export const projectPrivacySchema = z.enum(['workspace_visible', 'private']);
+const templateNameSchema = z
+  .string()
+  .trim()
+  .min(2, 'Template name should have at least 2 characters.')
+  .max(100, 'Template name should stay below 100 characters.');
 const statusNameSchema = z
   .string()
   .trim()
@@ -62,3 +67,43 @@ export const deleteProjectStatusSchema = z
     message: 'Fallback status must be different from the status being deleted.',
     path: ['fallbackStatusId']
   });
+
+export const createProjectTemplateSchema = z.object({
+  workspaceId: z.uuid(),
+  sourceProjectId: z.uuid(),
+  name: templateNameSchema,
+  includeTasks: z.boolean(),
+  actorUserId: z.uuid()
+});
+
+export const updateProjectTemplateSchema = z
+  .object({
+    templateId: z.uuid(),
+    name: templateNameSchema.optional(),
+    includeTasks: z.boolean().optional(),
+    actorUserId: z.uuid()
+  })
+  .refine((value) => value.name !== undefined || value.includeTasks !== undefined, {
+    message: 'Provide at least one field to update.',
+    path: ['templateId']
+  });
+
+export const createProjectFromTemplateSchema = z.object({
+  workspaceId: z.uuid(),
+  templateId: z.uuid(),
+  projectName: z
+    .string()
+    .min(2, 'Project name should have at least 2 characters.')
+    .max(100, 'Project name should stay below 100 characters.'),
+  dueAnchorDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due anchor date must use YYYY-MM-DD format.')
+    .nullable()
+    .optional(),
+  actorUserId: z.uuid()
+});
+
+export const listProjectTemplatesSchema = z.object({
+  workspaceId: z.uuid(),
+  actorUserId: z.uuid()
+});

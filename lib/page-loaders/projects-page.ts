@@ -5,6 +5,8 @@ import {
   type ProjectSummary,
   type WorkspaceSummary
 } from '@/lib/domain/projects/queries';
+import { getProjectTemplateSummaries } from '@/lib/domain/projects/template-queries';
+import type { ProjectTemplateSummary } from '@/lib/contracts/project-templates';
 import {
   loadWorkspaceTeamAccessData,
   type WorkspaceTeamAccessData
@@ -28,9 +30,11 @@ export type ProjectsPageState =
     }
   | {
       mode: 'workspace-detail';
+      currentUserId: string;
       workspaces: WorkspaceSummary[];
       activeWorkspace: WorkspaceSummary;
       projects: ProjectSummary[];
+      templates: ProjectTemplateSummary[];
       teamAccess: WorkspaceTeamAccessData | null;
       onboarding: WorkspaceOnboardingState | null;
     };
@@ -60,8 +64,9 @@ export async function loadProjectsPageData(search: { workspace?: string }): Prom
     };
   }
 
-  const [projects, teamAccess] = await Promise.all([
+  const [projectList, templates, loadedTeamAccess] = await Promise.all([
     getProjectsForWorkspace(supabase, activeWorkspace.id),
+    getProjectTemplateSummaries(supabase, activeWorkspace.id),
     activeWorkspace.role === 'admin'
       ? loadWorkspaceTeamAccessData(supabase, activeWorkspace.id).catch(() => null)
       : Promise.resolve(null)
@@ -69,18 +74,20 @@ export async function loadProjectsPageData(search: { workspace?: string }): Prom
 
   return {
     mode: 'workspace-detail',
+    currentUserId: user.id,
     workspaces,
     activeWorkspace,
-    projects,
-    teamAccess,
+    projects: projectList,
+    templates,
+    teamAccess: loadedTeamAccess,
     onboarding: buildWorkspaceOnboarding({
       isAdmin: activeWorkspace.role === 'admin',
-      projects: projects.map((project) => ({
+      projects: projectList.map((project) => ({
         id: project.id,
         name: project.name,
         taskCount: project.taskCount
       })),
-      teamAccess
+      teamAccess: loadedTeamAccess
     })
   };
 }

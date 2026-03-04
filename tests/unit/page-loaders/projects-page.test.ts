@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { getProjectTemplateSummaries } from '@/lib/domain/projects/template-queries';
 import { loadWorkspaceTeamAccessData } from '@/lib/page-loaders/workspace-team-access';
 
 vi.mock('@/lib/auth', () => ({
@@ -10,6 +11,9 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/domain/projects/queries', () => ({
   getWorkspacesForUser: vi.fn(),
   getProjectsForWorkspace: vi.fn()
+}));
+vi.mock('@/lib/domain/projects/template-queries', () => ({
+  getProjectTemplateSummaries: vi.fn()
 }));
 vi.mock('@/lib/page-loaders/workspace-team-access', () => ({
   loadWorkspaceTeamAccessData: vi.fn()
@@ -35,6 +39,7 @@ describe('loadProjectsPageData', () => {
       { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
     ]);
     vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+    vi.mocked(getProjectTemplateSummaries).mockResolvedValue([]);
     vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
       members: [
         {
@@ -55,7 +60,9 @@ describe('loadProjectsPageData', () => {
     expect(result).toEqual(
       expect.objectContaining({
         mode: 'workspace-detail',
+        currentUserId: 'u1',
         projects: [],
+        templates: [],
         teamAccess: expect.objectContaining({
           members: expect.any(Array),
           pendingInvites: []
@@ -89,6 +96,19 @@ describe('loadProjectsPageData', () => {
         overdueCount: 0
       }
     ]);
+    vi.mocked(getProjectTemplateSummaries).mockResolvedValue([
+      {
+        id: 'tpl1',
+        workspaceId: 'w1',
+        name: 'Sprint',
+        includeTasks: true,
+        statusCount: 2,
+        sectionCount: 1,
+        taskCount: 3,
+        createdBy: 'u1',
+        createdAt: '2026-03-04T00:00:00.000Z'
+      }
+    ]);
     vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
       members: [
         {
@@ -118,6 +138,12 @@ describe('loadProjectsPageData', () => {
     expect(result).toEqual(
       expect.objectContaining({
         mode: 'workspace-detail',
+        currentUserId: 'u1',
+        templates: [
+          expect.objectContaining({
+            id: 'tpl1'
+          })
+        ],
         onboarding: expect.objectContaining({
           primaryAction: {
             label: 'Open Core',
@@ -151,6 +177,7 @@ describe('loadProjectsPageData', () => {
         overdueCount: 0
       }
     ]);
+    vi.mocked(getProjectTemplateSummaries).mockResolvedValue([]);
     vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
       members: [],
       pendingInvites: []
@@ -158,6 +185,7 @@ describe('loadProjectsPageData', () => {
 
     await expect(loadProjectsPageData({ workspace: 'w1' })).resolves.toEqual({
       mode: 'workspace-detail',
+      currentUserId: 'u1',
       workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
       activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
       projects: [
@@ -171,6 +199,7 @@ describe('loadProjectsPageData', () => {
           overdueCount: 0
         }
       ],
+      templates: [],
       teamAccess: {
         members: [],
         pendingInvites: []
@@ -188,12 +217,15 @@ describe('loadProjectsPageData', () => {
       { id: 'w1', name: 'Ops', icon: null, role: 'member' }
     ]);
     vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+    vi.mocked(getProjectTemplateSummaries).mockResolvedValue([]);
 
     await expect(loadProjectsPageData({ workspace: 'w1' })).resolves.toEqual({
       mode: 'workspace-detail',
+      currentUserId: 'u1',
       workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'member' }],
       activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'member' },
       projects: [],
+      templates: [],
       teamAccess: null,
       onboarding: null
     });
@@ -208,6 +240,7 @@ describe('loadProjectsPageData', () => {
       { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
     ]);
     vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+    vi.mocked(getProjectTemplateSummaries).mockResolvedValue([]);
     vi.mocked(loadWorkspaceTeamAccessData).mockRejectedValue(new Error('boom'));
 
     const result = await loadProjectsPageData({ workspace: 'w1' });
@@ -215,6 +248,8 @@ describe('loadProjectsPageData', () => {
     expect(result).toEqual(
       expect.objectContaining({
         mode: 'workspace-detail',
+        currentUserId: 'u1',
+        templates: [],
         teamAccess: null,
         onboarding: expect.objectContaining({
           primaryAction: {

@@ -27,14 +27,14 @@ vi.mock('@/lib/page-loaders/project-assignees', () => ({
 
 describe('loadProjectDetailPageData', () => {
   it('returns null when the project does not exist', async () => {
-    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
+    vi.mocked(requireUser).mockResolvedValue({ user: { id: 'u1' } as never, supabase: {} as never });
     vi.mocked(getProjectById).mockResolvedValue(null);
 
     await expect(loadProjectDetailPageData('missing', {})).resolves.toBeNull();
   });
 
   it('ignores a selected task from another project and returns assignee options', async () => {
-    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
+    vi.mocked(requireUser).mockResolvedValue({ user: { id: 'u1' } as never, supabase: {} as never });
     vi.mocked(getProjectById).mockResolvedValue({
       id: 'p1',
       workspaceId: 'w1',
@@ -84,6 +84,7 @@ describe('loadProjectDetailPageData', () => {
 
     const result = await loadProjectDetailPageData('p1', { task: 't1' });
 
+    expect(result?.currentUserId).toBe('u1');
     expect(result?.assignees).toEqual([
       {
         userId: 'u1',
@@ -106,11 +107,16 @@ describe('loadProjectDetailPageData', () => {
       ]
     });
     expect(result?.selectedTaskPanel).toBeNull();
+    expect(result?.templateAuthoring).toEqual({
+      workspaceId: 'w1',
+      projectId: 'p1',
+      actorUserId: 'u1'
+    });
     expect(loadTaskDrawerDataForTask).not.toHaveBeenCalled();
   });
 
   it('omits the setup guide when the project already has tasks', async () => {
-    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
+    vi.mocked(requireUser).mockResolvedValue({ user: { id: 'u1' } as never, supabase: {} as never });
     vi.mocked(getProjectById).mockResolvedValue({
       id: 'p1',
       workspaceId: 'w1',
@@ -153,6 +159,12 @@ describe('loadProjectDetailPageData', () => {
     const result = await loadProjectDetailPageData('p1', {});
 
     expect(result?.setupGuide).toBeNull();
+    expect(result?.currentUserId).toBe('u1');
+    expect(result?.templateAuthoring).toEqual({
+      workspaceId: 'w1',
+      projectId: 'p1',
+      actorUserId: 'u1'
+    });
   });
 });
 

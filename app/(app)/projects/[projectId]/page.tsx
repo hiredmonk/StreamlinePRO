@@ -5,6 +5,7 @@ import { TaskRow } from '@/app/components/tasks/task-row';
 import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
 import { BoardView } from '@/app/components/projects/board-view';
 import { ProjectSetupGuidePanel } from '@/app/components/projects/project-setup-guide';
+import { SaveProjectTemplateForm } from '@/app/components/projects/save-project-template-form';
 import { WorkflowStatusManager } from '@/app/components/projects/workflow-status-manager';
 import { loadProjectDetailPageData } from '@/lib/page-loaders/project-detail-page';
 
@@ -56,6 +57,14 @@ export default async function ProjectDetailPage({
           preselectedProjectId={pageData.project.id}
           projectLocked
         />
+
+        {pageData.templateAuthoring ? (
+          <SaveProjectTemplateForm
+            workspaceId={pageData.templateAuthoring.workspaceId}
+            projectId={pageData.templateAuthoring.projectId}
+            actorUserId={pageData.templateAuthoring.actorUserId}
+          />
+        ) : null}
 
         <WorkflowStatusManager
           id="workflow-status-manager"
