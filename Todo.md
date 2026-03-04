@@ -24,7 +24,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Project creation flow implemented
 - [x] Default statuses and sections auto-created on project creation
 - [x] Projects listing view with task and overdue counts
-- [ ] Member invite/remove/role-management UX completed
+- [x] Member invite/remove/role-management UX completed
 
 ## 4) Tasks Core
 - [x] Quick Add task flow implemented

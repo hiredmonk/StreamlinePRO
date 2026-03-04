@@ -3,8 +3,10 @@ import { EmptyState } from '@/app/components/ui/empty-state';
 import { CreateProjectForm } from '@/app/components/projects/create-project-form';
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
+import { WorkspaceMembersPanel } from '@/app/components/projects/workspace-members-panel';
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { listWorkspaceMembersQuery } from '@/lib/actions/member-actions';
 
 export default async function ProjectsPage({
   searchParams
@@ -95,7 +97,13 @@ export default async function ProjectsPage({
     );
   }
 
-  const projects = await getProjectsForWorkspace(supabase, activeWorkspace.id);
+  const [projects, workspaceMembers] = await Promise.all([
+    getProjectsForWorkspace(supabase, activeWorkspace.id),
+    listWorkspaceMembersQuery({
+      workspaceId: activeWorkspace.id,
+      actorUserId: user.id
+    })
+  ]);
 
   return (
     <div className="space-y-4">
@@ -126,6 +134,12 @@ export default async function ProjectsPage({
       </section>
 
       <CreateProjectForm workspaceId={activeWorkspace.id} />
+
+      <WorkspaceMembersPanel
+        workspace={activeWorkspace}
+        actorUserId={user.id}
+        members={workspaceMembers.members}
+      />
 
       {projects.length ? (
         <ProjectCardGrid projects={projects} />
