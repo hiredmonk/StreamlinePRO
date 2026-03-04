@@ -7,6 +7,7 @@ import { BoardView } from '@/app/components/projects/board-view';
 import { WorkflowStatusManager } from '@/app/components/projects/workflow-status-manager';
 import { requireUser } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
+import { getRecurrenceSummaryById } from '@/lib/domain/tasks/recurrence-management';
 import {
   getProjectById,
   getProjectSections,
@@ -31,7 +32,7 @@ export default async function ProjectDetailPage({
   const routeParams = await params;
   const query = await searchParams;
 
-  const { supabase } = await requireUser();
+  const { user, supabase } = await requireUser();
 
   const project = await getProjectById(supabase, routeParams.projectId);
 
@@ -59,6 +60,9 @@ export default async function ProjectDetailPage({
         getTaskActivity(supabase, selectedTask.id)
       ])
     : [[], [], [], []];
+  const recurrence = selectedTask?.recurrence_id
+    ? await getRecurrenceSummaryById(supabase, selectedTask.recurrence_id)
+    : null;
 
   const env = getServerEnv();
   const attachmentsWithUrls = await Promise.all(
@@ -153,6 +157,9 @@ export default async function ProjectDetailPage({
           attachments={attachmentsWithUrls}
           activity={activity}
           closeHref={`/projects/${project.id}`}
+          workspaceId={project.workspaceId}
+          actorUserId={user.id}
+          recurrence={recurrence}
         />
       ) : null}
     </div>

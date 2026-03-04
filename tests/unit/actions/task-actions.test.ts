@@ -267,6 +267,7 @@ describe('task actions', () => {
           data: {
             id: ids.recurrence,
             pattern_json: { frequency: 'weekly', interval: 1 },
+            mode: 'create_on_complete',
             is_paused: false
           },
           error: null
@@ -302,6 +303,84 @@ describe('task actions', () => {
       expect.objectContaining({
         task_id: ids.nextTask,
         event_type: 'recurrence_generated'
+      })
+    );
+  });
+
+  it('completes schedule-mode recurring task without generating next instance', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            due_at: '2026-02-15T10:00:00.000Z',
+            recurrence_id: ids.recurrence,
+            title: 'Scheduled recurring'
+          },
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: { data: { id: ids.statusDone }, error: null }
+      },
+      { table: 'tasks', response: { data: null, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } },
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            section_id: ids.section,
+            status_id: ids.statusDone,
+            title: 'Scheduled recurring',
+            description: null,
+            assignee_id: ids.userA,
+            creator_id: ids.userA,
+            due_at: '2026-02-15T10:00:00.000Z',
+            due_timezone: 'UTC',
+            priority: null,
+            is_today: false,
+            recurrence_id: ids.recurrence
+          },
+          error: null
+        }
+      },
+      {
+        table: 'recurrences',
+        response: {
+          data: {
+            id: ids.recurrence,
+            pattern_json: { frequency: 'weekly', interval: 1 },
+            mode: 'create_on_schedule',
+            is_paused: false
+          },
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await completeTaskAction({ id: ids.task });
+
+    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+
+    const taskActivityCalls = history
+      .filter((entry) => entry.table === 'task_activity')
+      .map((entry) => entry.chain.insert.mock.calls[0]?.[0]);
+
+    expect(taskActivityCalls).toHaveLength(1);
+    expect(taskActivityCalls[0]).toEqual(
+      expect.objectContaining({
+        task_id: ids.task,
+        event_type: 'task_completed'
       })
     );
   });

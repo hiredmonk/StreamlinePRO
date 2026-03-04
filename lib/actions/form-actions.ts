@@ -18,6 +18,12 @@ import {
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
+import {
+  createRecurrenceAction,
+  pauseRecurrenceAction,
+  resumeRecurrenceAction,
+  updateRecurrenceAction
+} from '@/lib/actions/recurrence-actions';
 
 export async function createWorkspaceFromForm(formData: FormData) {
   const result = await createWorkspaceAction({
@@ -210,6 +216,64 @@ export async function uploadTaskAttachmentFromForm(formData: FormData) {
   }
 }
 
+export async function createRecurrenceFromForm(formData: FormData) {
+  const anchorDueAtLocal = String(formData.get('anchorDueAtLocal') ?? '');
+  const result = await createRecurrenceAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    taskId: String(formData.get('taskId') ?? ''),
+    pattern: {
+      frequency: parseRecurrenceFrequency(formData.get('frequency')),
+      interval: Number(formData.get('interval') ?? 1)
+    },
+    mode: parseRecurrenceMode(formData.get('mode')),
+    anchorDueAt: anchorDueAtLocal ? new Date(anchorDueAtLocal).toISOString() : null,
+    actorUserId: String(formData.get('actorUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateRecurrenceFromForm(formData: FormData) {
+  const result = await updateRecurrenceAction({
+    recurrenceId: String(formData.get('recurrenceId') ?? ''),
+    pattern: {
+      frequency: parseRecurrenceFrequency(formData.get('frequency')),
+      interval: Number(formData.get('interval') ?? 1)
+    },
+    mode: parseRecurrenceMode(formData.get('mode')),
+    actorUserId: String(formData.get('actorUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function pauseRecurrenceFromForm(formData: FormData) {
+  const result = await pauseRecurrenceAction({
+    recurrenceId: String(formData.get('recurrenceId') ?? ''),
+    actorUserId: String(formData.get('actorUserId') ?? ''),
+    reason: String(formData.get('reason') ?? '') || undefined
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function resumeRecurrenceFromForm(formData: FormData) {
+  const result = await resumeRecurrenceAction({
+    recurrenceId: String(formData.get('recurrenceId') ?? ''),
+    actorUserId: String(formData.get('actorUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
 export async function markNotificationReadFromForm(formData: FormData) {
   const result = await markNotificationReadAction({
     id: String(formData.get('id') ?? '')
@@ -226,4 +290,20 @@ function parsePriority(value: FormDataEntryValue | null) {
   }
 
   return null;
+}
+
+function parseRecurrenceFrequency(value: FormDataEntryValue | null) {
+  if (value === 'daily' || value === 'weekly' || value === 'monthly') {
+    return value;
+  }
+
+  throw new Error('Invalid recurrence frequency.');
+}
+
+function parseRecurrenceMode(value: FormDataEntryValue | null) {
+  if (value === 'create_on_complete' || value === 'create_on_schedule') {
+    return value;
+  }
+
+  throw new Error('Invalid recurrence mode.');
 }

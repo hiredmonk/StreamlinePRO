@@ -516,11 +516,15 @@ async function createNextTaskFromRecurrence(
 
   const { data: recurrence, error: recurrenceError } = await supabase
     .from('recurrences')
-    .select('id, pattern_json, is_paused')
+    .select('id, pattern_json, mode, is_paused')
     .eq('id', input.recurrenceId)
     .maybeSingle();
 
   if (recurrenceError || !recurrence || recurrence.is_paused) {
+    return;
+  }
+
+  if (recurrence.mode !== 'create_on_complete') {
     return;
   }
 
