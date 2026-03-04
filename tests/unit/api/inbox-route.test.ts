@@ -39,6 +39,7 @@ describe('GET /api/inbox', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ items: [{ id: 'n1', read_at: null }] });
+    expect(history[0]?.chain.eq).toHaveBeenCalledWith('channel', 'in_app');
     expect(history[0]?.chain.is).toHaveBeenCalledWith('read_at', null);
   });
 });

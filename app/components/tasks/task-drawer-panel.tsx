@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import {
   addCommentFromForm,
+  completeTaskFromForm,
   createTaskFromForm,
   updateTaskFromForm,
   uploadTaskAttachmentFromForm
@@ -45,7 +46,10 @@ export function TaskDrawerPanel({
   closeHref
 }: TaskDrawerPanelProps) {
   return (
-    <aside className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5">
+    <aside
+      data-drawer-task-id={task.id}
+      className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5"
+    >
       <div className="mb-5 flex items-start justify-between gap-2">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#6f6a62]">Task Details</p>
@@ -62,6 +66,17 @@ export function TaskDrawerPanel({
         <StatusBadge name={task.status.name} />
         <PriorityBadge priority={task.priority} />
       </div>
+
+      <form action={completeTaskFromForm} className="mb-4">
+        <input type="hidden" name="id" value={task.id} />
+        <button
+          type="submit"
+          data-shortcut-complete
+          className="h-10 w-full rounded-lg border border-[#b9c8a8] bg-[#eaf6e1] text-sm font-semibold text-[#1f6138] hover:bg-[#e0efd4]"
+        >
+          Complete Task
+        </button>
+      </form>
 
       <form action={updateTaskFromForm} className="space-y-3 rounded-xl border border-[#ddd2bc] bg-[#fffdf8] p-3">
         <input type="hidden" name="id" value={task.id} />

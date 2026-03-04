@@ -119,7 +119,8 @@ export async function createTaskAction(input: {
         type: 'assignment',
         entityType: 'task',
         entityId: taskId,
-        payload: { actorId: user.id, title: parsed.title }
+        payload: { actorId: user.id, title: parsed.title },
+        channels: ['in_app', 'email']
       });
     }
 
@@ -197,7 +198,8 @@ export async function updateTaskAction(input: {
         type: 'assignment',
         entityType: 'task',
         entityId: parsed.id,
-        payload: { actorId: user.id, title: parsed.title ?? existingTask.title }
+        payload: { actorId: user.id, title: parsed.title ?? existingTask.title },
+        channels: ['in_app', 'email']
       });
     }
 
@@ -377,7 +379,8 @@ export async function addCommentAction(input: {
         type: hasMentionSyntax ? 'mention' : 'comment',
         entityType: 'comment',
         entityId: comment.id,
-        payload: { taskId: parsed.taskId, actorId: user.id }
+        payload: { taskId: parsed.taskId, actorId: user.id },
+        channels: ['in_app', 'email']
       });
     }
 
@@ -392,7 +395,8 @@ export async function addCommentAction(input: {
         type: 'mention',
         entityType: 'comment',
         entityId: comment.id,
-        payload: { taskId: parsed.taskId, actorId: user.id }
+        payload: { taskId: parsed.taskId, actorId: user.id },
+        channels: ['in_app', 'email']
       });
     }
 

@@ -18,10 +18,11 @@ import {
 export default async function MyTasksPage({
   searchParams
 }: {
-  searchParams: Promise<{ task?: string }>;
+  searchParams: Promise<{ task?: string; shortcut?: string }>;
 }) {
   const params = await searchParams;
   const selectedTaskId = params.task;
+  const autoFocusQuickAdd = params.shortcut === 'new-task';
   const { user, supabase } = await requireUser();
   const workspaces = await getWorkspacesForUser(supabase, user.id);
 
@@ -116,7 +117,7 @@ export default async function MyTasksPage({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-4">
-        <QuickAddForm projects={quickAddProjects} />
+        <QuickAddForm projects={quickAddProjects} autoFocusTitle={autoFocusQuickAdd} />
 
         {!hasAnyTask ? (
           <EmptyState

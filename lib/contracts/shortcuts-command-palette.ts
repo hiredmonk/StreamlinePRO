@@ -53,6 +53,10 @@ export interface SearchCommandPaletteOutput {
   totalMatched: number;
 }
 
+export type CommandNavigateTo = '/my-tasks' | '/projects' | '/inbox' | '/search';
+
+export type CommandActionId = 'task.new' | 'task.open_drawer' | 'task.complete';
+
 export interface ExecuteCommandInput {
   commandId: string;
   pathname: string;
@@ -62,8 +66,8 @@ export interface ExecuteCommandInput {
 export interface ExecuteCommandOutput {
   commandId: string;
   handled: boolean;
-  navigateTo?: string;
-  triggerActionId?: string;
+  navigateTo?: CommandNavigateTo;
+  triggerActionId?: CommandActionId;
 }
 
 export type ResolveShortcuts = (input: ResolveShortcutsInput) => ResolveShortcutsOutput;

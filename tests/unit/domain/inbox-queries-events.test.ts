@@ -20,6 +20,7 @@ describe('inbox queries', () => {
 
     const chain = history[0]?.chain;
     expect(chain?.eq).toHaveBeenCalledWith('user_id', 'u1');
+    expect(chain?.eq).toHaveBeenCalledWith('channel', 'in_app');
     expect(chain?.is).toHaveBeenCalledWith('read_at', null);
     expect(chain?.limit).toHaveBeenCalledWith(100);
   });
@@ -58,8 +59,12 @@ describe('notification events', () => {
     });
 
     const insertPayload = history[0]?.chain.insert.mock.calls[0]?.[0];
-    expect(insertPayload.channel).toBe('in_app');
-    expect(insertPayload.workspace_id).toBe('w1');
+    expect(insertPayload).toEqual([
+      expect.objectContaining({
+        channel: 'in_app',
+        workspace_id: 'w1'
+      })
+    ]);
   });
 
   it('throws when insert fails', async () => {
@@ -79,5 +84,40 @@ describe('notification events', () => {
         entityId: 't1'
       })
     ).rejects.toThrow('insert failed');
+  });
+
+  it('inserts in-app and email rows when channels are provided', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'notifications',
+        response: { data: null, error: null }
+      }
+    ]);
+
+    await createNotification(supabase as never, {
+      workspaceId: 'w1',
+      userId: 'u2',
+      type: 'assignment',
+      entityType: 'task',
+      entityId: 't1',
+      channels: ['in_app', 'email']
+    });
+
+    const insertPayload = history[0]?.chain.insert.mock.calls[0]?.[0];
+    expect(insertPayload).toHaveLength(2);
+    expect(insertPayload).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ channel: 'in_app' }),
+        expect.objectContaining({
+          channel: 'email',
+          payload_json: expect.objectContaining({
+            emailDispatch: expect.objectContaining({
+              status: 'pending',
+              attemptCount: 0
+            })
+          })
+        })
+      ])
+    );
   });
 });

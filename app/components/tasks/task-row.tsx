@@ -16,10 +16,18 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
   const isOverdue = Boolean(task.due_at && !task.completed_at && new Date(task.due_at) < new Date());
 
   return (
-    <article className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4">
+    <article
+      tabIndex={0}
+      data-task-id={task.id}
+      className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4 outline-none focus-visible:border-[#c57d45] focus-visible:ring-2 focus-visible:ring-[#f0d7b8]"
+    >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <a href={drawerHref} className="text-[17px] font-semibold text-[#222] hover:text-[#a23a2f]">
+          <a
+            href={drawerHref}
+            data-shortcut-open-drawer
+            className="text-[17px] font-semibold text-[#222] hover:text-[#a23a2f]"
+          >
             {task.title}
           </a>
           <p className="mt-1 text-xs text-[#6b6f6a]">
@@ -53,6 +61,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
         <form action={completeTaskFromForm}>
           <input type="hidden" name="id" value={task.id} />
           <button
+            data-shortcut-complete
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#b8ccb4] bg-[#ebf7ec] px-3 text-sm font-semibold text-[#1f6a39] transition hover:bg-[#dff2e2]"
             type="submit"
           >
