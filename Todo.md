@@ -39,7 +39,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 ## 5) Board
 - [x] Project board view implemented
 - [x] Drag/drop status movement implemented with optimistic client update
-- [ ] Robust concurrent ordering strategy finalized
+- [x] Robust concurrent ordering strategy finalized
 
 ## 6) Recurrence & Templates
 - [x] Recurrence create-next-on-complete logic implemented

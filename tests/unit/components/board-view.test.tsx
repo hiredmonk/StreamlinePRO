@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BoardView } from '@/app/components/projects/board-view';
-import { moveTaskAction } from '@/lib/actions/task-actions';
+import { moveTaskWithConcurrencyAction } from '@/lib/actions/task-actions';
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: any) => (
@@ -12,7 +12,17 @@ vi.mock('next/link', () => ({
   )
 }));
 vi.mock('@/lib/actions/task-actions', () => ({
-  moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } }))
+  moveTaskWithConcurrencyAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      taskId: 't1',
+      projectId: 'p1',
+      statusId: 'done',
+      sectionId: null,
+      sortOrder: 1,
+      laneVersion: 2
+    }
+  }))
 }));
 
 describe('BoardView', () => {
@@ -20,10 +30,11 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p1"
+        actorUserId="11111111-1111-4111-8111-111111111111"
         drawerPathname="/projects/p1"
         statuses={[
-          { id: 'todo', name: 'To do', color: '#000' },
-          { id: 'done', name: 'Done', color: '#0a0' }
+          { id: 'todo', name: 'To do', color: '#000', laneVersion: 0 },
+          { id: 'done', name: 'Done', color: '#0a0', laneVersion: 1 }
         ]}
         tasks={[
           {
@@ -61,7 +72,17 @@ describe('BoardView', () => {
     });
 
     await waitFor(() => {
-      expect(moveTaskAction).toHaveBeenCalledWith({ id: 't1', statusId: 'done', sortOrder: 1 });
+      expect(moveTaskWithConcurrencyAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          taskId: 't1',
+          projectId: 'p1',
+          fromStatusId: 'todo',
+          toStatusId: 'done',
+          targetIndex: 0,
+          expectedLaneVersion: 1,
+          actorUserId: '11111111-1111-4111-8111-111111111111'
+        })
+      );
     });
   });
 
@@ -69,13 +90,14 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p2"
+        actorUserId="11111111-1111-4111-8111-111111111111"
         drawerPathname="/projects/p2"
         statuses={[
-          { id: 's1', name: 'To do', color: '#111111' },
-          { id: 's2', name: 'Doing', color: '#222222' },
-          { id: 's3', name: 'Waiting', color: '#333333' },
-          { id: 's4', name: 'Review', color: '#444444' },
-          { id: 's5', name: 'Done', color: '#555555' }
+          { id: 's1', name: 'To do', color: '#111111', laneVersion: 0 },
+          { id: 's2', name: 'Doing', color: '#222222', laneVersion: 0 },
+          { id: 's3', name: 'Waiting', color: '#333333', laneVersion: 0 },
+          { id: 's4', name: 'Review', color: '#444444', laneVersion: 0 },
+          { id: 's5', name: 'Done', color: '#555555', laneVersion: 0 }
         ]}
         tasks={[]}
       />

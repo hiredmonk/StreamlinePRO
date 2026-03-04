@@ -1,19 +1,38 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { moveTaskAction } from '@/lib/actions/task-actions';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { moveTaskWithConcurrencyAction } from '@/lib/actions/task-actions';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
 type BoardViewProps = {
   projectId: string;
-  statuses: Array<{ id: string; name: string; color: string }>;
+  actorUserId: string;
+  statuses: Array<{ id: string; name: string; color: string; laneVersion: number }>;
   tasks: TaskWithRelations[];
   drawerPathname: string;
 };
 
-export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardViewProps) {
+export function BoardView({
+  projectId,
+  actorUserId,
+  statuses,
+  tasks,
+  drawerPathname
+}: BoardViewProps) {
   const [items, setItems] = useState(tasks);
+  const [laneVersions, setLaneVersions] = useState<Record<string, number>>(() =>
+    buildLaneVersionMap(statuses)
+  );
+  const [boardMessage, setBoardMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setItems(tasks);
+  }, [tasks]);
+
+  useEffect(() => {
+    setLaneVersions(buildLaneVersionMap(statuses));
+  }, [statuses]);
 
   const groupedByStatus = useMemo(() => {
     return statuses.map((status) => ({
@@ -25,36 +44,58 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
   }, [statuses, items]);
 
   function onDrop(taskId: string, statusId: string) {
-    const previous = items;
-    const nextSortOrder = previous.filter((task) => task.status_id === statusId).length + 1;
+    const previousItems = items;
+    const previousLaneVersions = laneVersions;
+    const movingTask = previousItems.find((task) => task.id === taskId);
 
-    setItems((current) =>
-      current.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status_id: statusId,
-              status: {
-                ...task.status,
-                id: statusId,
-                name: statuses.find((status) => status.id === statusId)?.name ?? task.status.name
-              },
-              sort_order: nextSortOrder
-            }
-          : task
-      )
-    );
+    if (!movingTask) {
+      return;
+    }
+
+    const targetIndex = previousItems.filter(
+      (task) => task.status_id === statusId && task.id !== taskId
+    ).length;
+    const expectedLaneVersion = laneVersions[statusId] ?? 0;
+    const nextItems = applyOptimisticMove(previousItems, {
+      taskId,
+      toStatusId: statusId,
+      targetIndex,
+      statuses
+    });
+
+    setItems(nextItems);
+    setBoardMessage(null);
 
     startTransition(async () => {
-      const result = await moveTaskAction({
-        id: taskId,
-        statusId,
-        sortOrder: nextSortOrder
+      const result = await moveTaskWithConcurrencyAction({
+        taskId,
+        projectId,
+        fromStatusId: movingTask.status_id,
+        toStatusId: statusId,
+        toSectionId: movingTask.section_id,
+        targetIndex,
+        expectedLaneVersion,
+        actorUserId
       });
 
       if (!result.ok) {
-        setItems(previous);
+        setItems(previousItems);
+        setLaneVersions(previousLaneVersions);
+        setBoardMessage('Board update failed. Please retry.');
+        return;
       }
+
+      if (result.data.conflict) {
+        setItems(previousItems);
+        setLaneVersions(previousLaneVersions);
+        setBoardMessage(getConflictMessage(result.data.conflict.reason));
+        return;
+      }
+
+      setLaneVersions((current) => ({
+        ...current,
+        [result.data.statusId]: result.data.laneVersion
+      }));
     });
   }
 
@@ -69,6 +110,11 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
           {projectId.slice(0, 8)} {isPending ? '· syncing' : ''}
         </p>
       </div>
+      {boardMessage ? (
+        <p className="rounded-xl border border-[#f0c2bc] bg-[#fff4f2] px-3 py-2 text-xs text-[#9f3127]">
+          {boardMessage}
+        </p>
+      ) : null}
       <div className="overflow-x-auto pb-1">
         <div
           className="grid min-w-max gap-3"
@@ -128,4 +174,98 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
       </div>
     </section>
   );
+}
+
+function buildLaneVersionMap(
+  statuses: Array<{ id: string; laneVersion: number }>
+): Record<string, number> {
+  return statuses.reduce<Record<string, number>>((accumulator, status) => {
+    accumulator[status.id] = status.laneVersion;
+    return accumulator;
+  }, {});
+}
+
+function applyOptimisticMove(
+  items: TaskWithRelations[],
+  input: {
+    taskId: string;
+    toStatusId: string;
+    targetIndex: number;
+    statuses: Array<{ id: string; name: string }>;
+  }
+) {
+  const movingTask = items.find((task) => task.id === input.taskId);
+  if (!movingTask) {
+    return items;
+  }
+
+  const sourceStatusId = movingTask.status_id;
+  const destinationIds = items
+    .filter((task) => task.status_id === input.toStatusId && task.id !== input.taskId)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((task) => task.id);
+  const clampedTargetIndex = Math.min(Math.max(input.targetIndex, 0), destinationIds.length);
+  destinationIds.splice(clampedTargetIndex, 0, input.taskId);
+
+  const sourceIds =
+    sourceStatusId === input.toStatusId
+      ? destinationIds
+      : items
+          .filter((task) => task.status_id === sourceStatusId && task.id !== input.taskId)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((task) => task.id);
+
+  const destinationOrder = new Map(destinationIds.map((taskId, index) => [taskId, index + 1]));
+  const sourceOrder = new Map(sourceIds.map((taskId, index) => [taskId, index + 1]));
+
+  return items.map((task) => {
+    if (task.id === input.taskId) {
+      return {
+        ...task,
+        status_id: input.toStatusId,
+        status: {
+          ...task.status,
+          id: input.toStatusId,
+          name: input.statuses.find((status) => status.id === input.toStatusId)?.name ?? task.status.name
+        },
+        sort_order: destinationOrder.get(task.id) ?? task.sort_order
+      };
+    }
+
+    if (destinationOrder.has(task.id)) {
+      return {
+        ...task,
+        sort_order: destinationOrder.get(task.id) ?? task.sort_order
+      };
+    }
+
+    if (sourceStatusId !== input.toStatusId && sourceOrder.has(task.id)) {
+      return {
+        ...task,
+        sort_order: sourceOrder.get(task.id) ?? task.sort_order
+      };
+    }
+
+    return task;
+  });
+}
+
+function getConflictMessage(reason: string) {
+  if (reason === 'version_mismatch') {
+    return 'Board changed in another session. Refresh and try again.';
+  }
+
+  if (reason === 'duplicate_sort_order') {
+    return 'Lane order is inconsistent. Refresh and try again.';
+  }
+
+  if (reason === 'missing_task') {
+    return 'Task moved elsewhere before your update. Refresh and retry.';
+  }
+
+  if (reason === 'invalid_lane') {
+    return 'Target lane is no longer valid. Refresh and retry.';
+  }
+
+  return 'Board update conflict. Refresh and retry.';
 }

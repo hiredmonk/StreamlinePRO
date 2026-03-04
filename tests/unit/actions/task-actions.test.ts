@@ -3,7 +3,10 @@ import {
   addCommentAction,
   completeTaskAction,
   createTaskAction,
+  fetchBoardOrderStateQuery,
   moveTaskAction,
+  moveTaskWithConcurrencyAction,
+  reorderBoardColumnAction,
   updateTaskAction,
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
@@ -217,6 +220,282 @@ describe('task actions', () => {
     expect(history[1]?.chain.update).toHaveBeenCalledWith(
       expect.objectContaining({ status_id: ids.statusDone, sort_order: 3 })
     );
+  });
+
+  it('moves task with lane-version concurrency checks', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            status_id: ids.statusTodo,
+            section_id: ids.section,
+            sort_order: 1
+          },
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusDone, project_id: ids.project, lane_version: 1 },
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [
+            { id: ids.nextTask, status_id: ids.statusDone, section_id: null, sort_order: 1 }
+          ],
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [
+            { id: ids.task, status_id: ids.statusTodo, section_id: ids.section, sort_order: 1 }
+          ],
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { lane_version: 2 },
+          error: null
+        }
+      },
+      { table: 'tasks', response: { data: null, error: null } },
+      { table: 'tasks', response: { data: null, error: null } },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+          error: null
+        }
+      },
+      { table: 'project_statuses', response: { data: null, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await moveTaskWithConcurrencyAction({
+      taskId: ids.task,
+      projectId: ids.project,
+      fromStatusId: ids.statusTodo,
+      toStatusId: ids.statusDone,
+      toSectionId: null,
+      targetIndex: 0,
+      expectedLaneVersion: 1,
+      actorUserId: ids.userA
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        taskId: ids.task,
+        projectId: ids.project,
+        statusId: ids.statusDone,
+        sectionId: null,
+        sortOrder: 1,
+        laneVersion: 2
+      }
+    });
+    expect(history[6]?.chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status_id: ids.statusDone,
+        section_id: null,
+        sort_order: 1
+      })
+    );
+  });
+
+  it('returns conflict on lane version mismatch during move', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            status_id: ids.statusTodo,
+            section_id: ids.section,
+            sort_order: 1
+          },
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusTodo, project_id: ids.project, lane_version: 4 },
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [{ id: ids.task, status_id: ids.statusTodo, section_id: ids.section, sort_order: 1 }],
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: null,
+          error: null
+        }
+      },
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await moveTaskWithConcurrencyAction({
+      taskId: ids.task,
+      projectId: ids.project,
+      fromStatusId: ids.statusTodo,
+      toStatusId: ids.statusTodo,
+      targetIndex: 0,
+      expectedLaneVersion: 4,
+      actorUserId: ids.userA
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected conflict payload from board move.');
+    }
+    expect(result.data.conflict).toEqual(
+      expect.objectContaining({
+        reason: 'version_mismatch',
+        actualVersion: 5
+      })
+    );
+    expect(history.filter((entry) => entry.table === 'tasks' && entry.chain.update.mock.calls.length > 0)).toHaveLength(0);
+  });
+
+  it('returns missing-task conflict for invalid reorder payload', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: { id: ids.statusTodo, project_id: ids.project, lane_version: 3 },
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [
+            { id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 },
+            { id: ids.nextTask, status_id: ids.statusTodo, section_id: null, sort_order: 2 }
+          ],
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await reorderBoardColumnAction({
+      projectId: ids.project,
+      statusId: ids.statusTodo,
+      orderedTaskIds: [ids.task],
+      expectedLaneVersion: 3,
+      actorUserId: ids.userA
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected conflict payload from board reorder.');
+    }
+    expect(result.data.conflict).toEqual(
+      expect.objectContaining({
+        reason: 'missing_task'
+      })
+    );
+  });
+
+  it('fetches lane order state with versions', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'project_statuses',
+        response: {
+          data: [
+            { id: ids.statusTodo, project_id: ids.project, lane_version: 1 },
+            { id: ids.statusDone, project_id: ids.project, lane_version: 2 }
+          ],
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+          error: null
+        }
+      },
+      {
+        table: 'tasks',
+        response: {
+          data: [{ id: ids.nextTask, status_id: ids.statusDone, section_id: null, sort_order: 1 }],
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await fetchBoardOrderStateQuery({
+      projectId: ids.project
+    });
+
+    expect(result).toEqual({
+      lanes: [
+        {
+          projectId: ids.project,
+          statusId: ids.statusTodo,
+          laneVersion: 1,
+          orderedTaskIds: [ids.task]
+        },
+        {
+          projectId: ids.project,
+          statusId: ids.statusDone,
+          laneVersion: 2,
+          orderedTaskIds: [ids.nextTask]
+        }
+      ]
+    });
   });
 
   it('completes recurring task and generates the next instance', async () => {
