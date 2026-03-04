@@ -91,7 +91,7 @@ describe('generateDueNotifications', () => {
       {
         table: 'notifications',
         response: {
-          data: [{ user_id: 'user-2', entity_id: 'task-overdue', type: 'overdue' }],
+          data: [{ user_id: 'user-2', entity_id: 'task-overdue', type: 'overdue', channel: 'in_app' }],
           error: null
         }
       },
@@ -105,22 +105,53 @@ describe('generateDueNotifications', () => {
 
     expect(summary).toEqual({
       scanned: 7,
-      candidates: 2,
-      created: 1,
+      candidates: 4,
+      created: 3,
       skipped: 1
     });
 
     const insertRows = history[4]?.chain.insert.mock.calls[0]?.[0];
-    expect(insertRows).toEqual([
-      expect.objectContaining({
-        workspace_id: 'workspace-1',
-        user_id: 'user-1',
-        type: 'due_soon',
-        entity_type: 'task',
-        entity_id: 'task-due-soon',
-        channel: 'in_app'
-      })
-    ]);
+    expect(insertRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspace_id: 'workspace-1',
+          user_id: 'user-1',
+          type: 'due_soon',
+          entity_type: 'task',
+          entity_id: 'task-due-soon',
+          channel: 'in_app'
+        }),
+        expect.objectContaining({
+          workspace_id: 'workspace-1',
+          user_id: 'user-1',
+          type: 'due_soon',
+          entity_type: 'task',
+          entity_id: 'task-due-soon',
+          channel: 'email'
+        }),
+        expect.objectContaining({
+          workspace_id: 'workspace-1',
+          user_id: 'user-2',
+          type: 'overdue',
+          entity_type: 'task',
+          entity_id: 'task-overdue',
+          channel: 'email'
+        })
+      ])
+    );
+    expect(insertRows).toHaveLength(3);
+    expect(insertRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload_json: expect.objectContaining({
+            emailDispatch: expect.objectContaining({
+              status: 'pending',
+              attemptCount: 0
+            })
+          })
+        })
+      ])
+    );
   });
 
   it('returns zero summary when no due candidates exist', async () => {

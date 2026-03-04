@@ -1,5 +1,9 @@
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
 import type { Database, Json } from '@/lib/supabase/types';
+import {
+  buildEmailDedupeKey,
+  withEmailDispatchState
+} from '@/lib/domain/inbox/email-dispatch-state';
 
 type NotificationType = Database['public']['Tables']['notifications']['Insert']['type'];
 type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
@@ -100,17 +104,37 @@ export async function generateDueNotifications(
       continue;
     }
 
-    candidateRows.push({
+    const baseRow: Omit<NotificationInsert, 'channel' | 'payload_json'> = {
       workspace_id: workspaceId,
       user_id: task.assignee_id,
       type,
       entity_type: 'task',
-      entity_id: task.id,
-      payload_json: {
-        taskId: task.id,
-        dueAt: task.due_at
-      } as Json,
+      entity_id: task.id
+    };
+    const basePayload = {
+      taskId: task.id,
+      dueAt: task.due_at
+    } as Json;
+
+    candidateRows.push({
+      ...baseRow,
+      payload_json: basePayload,
       channel: 'in_app'
+    });
+    candidateRows.push({
+      ...baseRow,
+      payload_json: withEmailDispatchState(basePayload, {
+        dedupeKey: buildEmailDedupeKey({
+          workspaceId,
+          userId: task.assignee_id,
+          type,
+          entityType: 'task',
+          entityId: task.id
+        }),
+        attemptCount: 0,
+        status: 'pending'
+      }),
+      channel: 'email'
     });
   }
 
@@ -127,7 +151,7 @@ export async function generateDueNotifications(
 
   const { data: existingNotifications, error: existingError } = await supabase
     .from('notifications')
-    .select('user_id, entity_id, type')
+    .select('user_id, entity_id, type, channel')
     .eq('entity_type', 'task')
     .in('type', ['due_soon', 'overdue'])
     .in('entity_id', uniqueTaskIds);
@@ -137,12 +161,14 @@ export async function generateDueNotifications(
   }
 
   const existingKeys = new Set(
-    (existingNotifications ?? []).map((row) => `${row.user_id}:${row.entity_id}:${row.type}`)
+    (existingNotifications ?? []).map(
+      (row) => `${row.user_id}:${row.entity_id}:${row.type}:${row.channel}`
+    )
   );
   const uniqueRows = new Map<string, (typeof candidateRows)[number]>();
 
   for (const row of candidateRows) {
-    const key = `${row.user_id}:${row.entity_id}:${row.type}`;
+    const key = `${row.user_id}:${row.entity_id}:${row.type}:${row.channel}`;
     if (existingKeys.has(key) || uniqueRows.has(key)) {
       continue;
     }

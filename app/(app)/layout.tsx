@@ -3,6 +3,7 @@ import { PlusCircle } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions/auth-actions';
 import { AppSidebar } from '@/app/components/layout/app-sidebar';
+import { CommandCenter } from '@/app/components/shortcuts/command-center';
 import { getWorkspacesForUser } from '@/lib/domain/projects/queries';
 
 export default async function PrivateLayout({
@@ -15,6 +16,7 @@ export default async function PrivateLayout({
 
   return (
     <div className="app-shell-grid">
+      <CommandCenter />
       <AppSidebar workspaces={workspaces} userEmail={user.email ?? 'Unknown user'} />
       <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-10">
         <header className="glass-panel mb-5 flex flex-wrap items-center justify-between gap-4 px-5 py-4">

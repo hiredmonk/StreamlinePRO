@@ -14,6 +14,9 @@ vi.mock('next/link', () => ({
 vi.mock('@/lib/actions/task-actions', () => ({
   moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } }))
 }));
+vi.mock('@/lib/actions/form-actions', () => ({
+  completeTaskFromForm: vi.fn()
+}));
 
 describe('BoardView', () => {
   it('moves task between status columns on drop', async () => {

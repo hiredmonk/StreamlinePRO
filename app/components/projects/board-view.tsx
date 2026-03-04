@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { moveTaskAction } from '@/lib/actions/task-actions';
+import { completeTaskFromForm } from '@/lib/actions/form-actions';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
 type BoardViewProps = {
@@ -100,13 +101,16 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
                 <li
                   key={task.id}
                   draggable
+                  tabIndex={0}
+                  data-task-id={task.id}
                   onDragStart={(event) => {
                     event.dataTransfer.setData('text/task-id', task.id);
                   }}
-                  className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 active:cursor-grabbing"
+                  className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 outline-none active:cursor-grabbing focus-visible:border-[#c57d45] focus-visible:ring-2 focus-visible:ring-[#f0d7b8]"
                 >
                   <a
                     href={`${drawerPathname}?task=${task.id}`}
+                    data-shortcut-open-drawer
                     className="line-clamp-2 text-sm font-semibold text-[#2b312d] hover:text-[#af3324]"
                   >
                     {task.title}
@@ -114,6 +118,16 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
                   <p className="mt-2 text-[11px] uppercase tracking-wide text-[#7a7d77]">
                     {task.section?.name ?? 'No section'}
                   </p>
+                  <form action={completeTaskFromForm} className="mt-2">
+                    <input type="hidden" name="id" value={task.id} />
+                    <button
+                      type="submit"
+                      data-shortcut-complete
+                      className="rounded-lg border border-[#c4d4be] bg-[#edf7e7] px-2 py-1 text-[11px] font-semibold text-[#1f6538] hover:bg-[#e1f0d8]"
+                    >
+                      Complete
+                    </button>
+                  </form>
                 </li>
               ))}
               {!column.items.length ? (

@@ -9,6 +9,7 @@ export async function getInboxItems(
     .from('notifications')
     .select('id, type, channel, entity_type, entity_id, payload_json, read_at, created_at')
     .eq('user_id', userId)
+    .eq('channel', 'in_app')
     .order('created_at', { ascending: false });
 
   if (options.unreadOnly) {

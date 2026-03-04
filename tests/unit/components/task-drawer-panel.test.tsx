@@ -11,6 +11,7 @@ vi.mock('next/link', () => ({
   )
 }));
 vi.mock('@/lib/actions/form-actions', () => ({
+  completeTaskFromForm: vi.fn(),
   addCommentFromForm: vi.fn(),
   createTaskFromForm: vi.fn(),
   updateTaskFromForm: vi.fn(),

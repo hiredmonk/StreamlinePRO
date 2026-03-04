@@ -94,7 +94,8 @@ describe('task actions', () => {
       expect.objectContaining({
         type: 'assignment',
         userId: ids.userB,
-        entityId: result.data.taskId
+        entityId: result.data.taskId,
+        channels: ['in_app', 'email']
       })
     );
     expect(revalidatePath).toHaveBeenCalledWith('/my-tasks');
@@ -191,7 +192,7 @@ describe('task actions', () => {
     expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
     expect(createNotification).toHaveBeenCalledWith(
       supabase,
-      expect.objectContaining({ userId: ids.userB, type: 'assignment' })
+      expect.objectContaining({ userId: ids.userB, type: 'assignment', channels: ['in_app', 'email'] })
     );
   });
 
@@ -346,7 +347,8 @@ describe('task actions', () => {
       expect.objectContaining({
         type: 'mention',
         userId: ids.userB,
-        entityType: 'comment'
+        entityType: 'comment',
+        channels: ['in_app', 'email']
       })
     );
   });
@@ -395,7 +397,8 @@ describe('task actions', () => {
       expect.objectContaining({
         type: 'mention',
         userId: ids.userB,
-        entityType: 'comment'
+        entityType: 'comment',
+        channels: ['in_app', 'email']
       })
     );
     expect(createNotification).toHaveBeenCalledWith(
@@ -403,7 +406,8 @@ describe('task actions', () => {
       expect.objectContaining({
         type: 'mention',
         userId: ids.userC,
-        entityType: 'comment'
+        entityType: 'comment',
+        channels: ['in_app', 'email']
       })
     );
   });
