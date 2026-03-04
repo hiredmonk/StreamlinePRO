@@ -10,6 +10,10 @@ import {
   updateProjectStatusAction
 } from '@/lib/actions/project-actions';
 import {
+  createProjectFromTemplateAction,
+  createProjectTemplateAction
+} from '@/lib/actions/project-template-actions';
+import {
   addCommentAction,
   completeTaskAction,
   createTaskAction,
@@ -41,6 +45,37 @@ export async function createProjectFromForm(formData: FormData) {
       String(formData.get('privacy') ?? 'workspace_visible') === 'private'
         ? 'private'
         : 'workspace_visible'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  redirect(`/projects/${result.data.projectId}`);
+}
+
+export async function createProjectTemplateFromForm(formData: FormData) {
+  const result = await createProjectTemplateAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    sourceProjectId: String(formData.get('sourceProjectId') ?? ''),
+    name: String(formData.get('name') ?? ''),
+    includeTasks: formData.get('includeTasks') === 'on',
+    actorUserId: String(formData.get('actorUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function createProjectFromTemplateFromForm(formData: FormData) {
+  const dueAnchorDate = String(formData.get('dueAnchorDate') ?? '');
+  const result = await createProjectFromTemplateAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    templateId: String(formData.get('templateId') ?? ''),
+    projectName: String(formData.get('projectName') ?? ''),
+    dueAnchorDate: dueAnchorDate || null,
+    actorUserId: String(formData.get('actorUserId') ?? '')
   });
 
   if (!result.ok) {

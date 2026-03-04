@@ -5,6 +5,7 @@ import { TaskRow } from '@/app/components/tasks/task-row';
 import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
 import { BoardView } from '@/app/components/projects/board-view';
 import { WorkflowStatusManager } from '@/app/components/projects/workflow-status-manager';
+import { SaveProjectTemplateForm } from '@/app/components/projects/save-project-template-form';
 import { requireUser } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import {
@@ -31,7 +32,7 @@ export default async function ProjectDetailPage({
   const routeParams = await params;
   const query = await searchParams;
 
-  const { supabase } = await requireUser();
+  const { user, supabase } = await requireUser();
 
   const project = await getProjectById(supabase, routeParams.projectId);
 
@@ -101,6 +102,12 @@ export default async function ProjectDetailPage({
             }
           ]}
           preselectedProjectId={project.id}
+        />
+
+        <SaveProjectTemplateForm
+          workspaceId={project.workspaceId}
+          projectId={project.id}
+          actorUserId={user.id}
         />
 
         <WorkflowStatusManager

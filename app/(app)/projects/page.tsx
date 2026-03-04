@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { EmptyState } from '@/app/components/ui/empty-state';
 import { CreateProjectForm } from '@/app/components/projects/create-project-form';
+import { CreateFromTemplateForm } from '@/app/components/projects/create-from-template-form';
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { getProjectTemplateSummaries } from '@/lib/domain/projects/template-queries';
 
 export default async function ProjectsPage({
   searchParams
@@ -95,7 +97,10 @@ export default async function ProjectsPage({
     );
   }
 
-  const projects = await getProjectsForWorkspace(supabase, activeWorkspace.id);
+  const [projects, templates] = await Promise.all([
+    getProjectsForWorkspace(supabase, activeWorkspace.id),
+    getProjectTemplateSummaries(supabase, activeWorkspace.id)
+  ]);
 
   return (
     <div className="space-y-4">
@@ -124,6 +129,12 @@ export default async function ProjectsPage({
           </Link>
         </div>
       </section>
+
+      <CreateFromTemplateForm
+        workspaceId={activeWorkspace.id}
+        actorUserId={user.id}
+        templates={templates}
+      />
 
       <CreateProjectForm workspaceId={activeWorkspace.id} />
 
