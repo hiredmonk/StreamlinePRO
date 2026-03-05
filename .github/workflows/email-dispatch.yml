@@ -1,0 +1,32 @@
+name: Email Notification Dispatch
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      APP_BASE_URL: ${{ vars.PROD_APP_URL || 'https://streamlinepro.online' }}
+
+    steps:
+      - name: Validate required secret
+        run: |
+          if [ -z "${{ secrets.JOB_RUNNER_TOKEN }}" ]; then
+            echo "Missing required secret: JOB_RUNNER_TOKEN"
+            exit 1
+          fi
+
+      - name: Trigger email notification dispatch job
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -sS -X POST "$APP_BASE_URL/api/jobs/email-notifications" \
+            -H "Authorization: Bearer ${{ secrets.JOB_RUNNER_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"batchSize":100,"maxAttempts":3}')
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"ok":true'

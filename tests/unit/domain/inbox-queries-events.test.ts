@@ -20,6 +20,7 @@ describe('inbox queries', () => {
 
     const chain = history[0]?.chain;
     expect(chain?.eq).toHaveBeenCalledWith('user_id', 'u1');
+    expect(chain?.eq).toHaveBeenCalledWith('channel', 'in_app');
     expect(chain?.is).toHaveBeenCalledWith('read_at', null);
     expect(chain?.limit).toHaveBeenCalledWith(100);
   });
@@ -58,8 +59,16 @@ describe('notification events', () => {
     });
 
     const insertPayload = history[0]?.chain.insert.mock.calls[0]?.[0];
-    expect(insertPayload.channel).toBe('in_app');
-    expect(insertPayload.workspace_id).toBe('w1');
+    expect(insertPayload).toEqual([
+      expect.objectContaining({
+        channel: 'in_app',
+        workspace_id: 'w1'
+      }),
+      expect.objectContaining({
+        channel: 'email',
+        workspace_id: 'w1'
+      })
+    ]);
   });
 
   it('throws when insert fails', async () => {
