@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   createCommentSchema,
   createTaskSchema,
+  fetchBoardOrderStateSchema,
+  moveTaskWithConcurrencySchema,
   moveTaskSchema,
+  reorderBoardColumnSchema,
   updateTaskSchema
 } from '@/lib/validators/task';
 
@@ -54,6 +57,39 @@ describe('task validators', () => {
     const result = createCommentSchema.safeParse({
       taskId: uuid,
       body: ''
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('validates board concurrency move and fetch payloads', () => {
+    expect(
+      moveTaskWithConcurrencySchema.safeParse({
+        taskId: uuid,
+        projectId: uuid2,
+        fromStatusId: uuid,
+        toStatusId: uuid2,
+        targetIndex: 0,
+        expectedLaneVersion: 1,
+        actorUserId: uuid
+      }).success
+    ).toBe(true);
+
+    expect(
+      fetchBoardOrderStateSchema.safeParse({
+        projectId: uuid,
+        statusId: uuid2
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects duplicate board reorder payloads', () => {
+    const result = reorderBoardColumnSchema.safeParse({
+      projectId: uuid,
+      statusId: uuid2,
+      orderedTaskIds: [uuid, uuid],
+      expectedLaneVersion: 0,
+      actorUserId: uuid
     });
 
     expect(result.success).toBe(false);

@@ -46,6 +46,35 @@ export const moveTaskSchema = z.object({
   sortOrder: z.number().min(0)
 });
 
+export const moveTaskWithConcurrencySchema = z.object({
+  taskId: z.uuid(),
+  projectId: z.uuid(),
+  fromStatusId: z.uuid(),
+  toStatusId: z.uuid(),
+  toSectionId: z.uuid().nullable().optional(),
+  targetIndex: z.number().int().min(0),
+  expectedLaneVersion: z.number().int().min(0),
+  actorUserId: z.uuid()
+});
+
+export const reorderBoardColumnSchema = z
+  .object({
+    projectId: z.uuid(),
+    statusId: z.uuid(),
+    orderedTaskIds: z.array(z.uuid()),
+    expectedLaneVersion: z.number().int().min(0),
+    actorUserId: z.uuid()
+  })
+  .refine((value) => new Set(value.orderedTaskIds).size === value.orderedTaskIds.length, {
+    message: 'Task order contains duplicates.',
+    path: ['orderedTaskIds']
+  });
+
+export const fetchBoardOrderStateSchema = z.object({
+  projectId: z.uuid(),
+  statusId: z.uuid().optional()
+});
+
 export const createCommentSchema = z.object({
   taskId: z.uuid(),
   body: z.string().min(1).max(2000)

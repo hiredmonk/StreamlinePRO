@@ -183,7 +183,7 @@ export async function getProjectStatuses(
 ) {
   const { data, error } = await supabase
     .from("project_statuses")
-    .select("id, name, color, is_done, sort_order")
+    .select("id, name, color, is_done, sort_order, lane_version")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true });
 

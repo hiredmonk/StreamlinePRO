@@ -31,7 +31,7 @@ export default async function ProjectDetailPage({
   const routeParams = await params;
   const query = await searchParams;
 
-  const { supabase } = await requireUser();
+  const { user, supabase } = await requireUser();
 
   const project = await getProjectById(supabase, routeParams.projectId);
 
@@ -137,7 +137,13 @@ export default async function ProjectDetailPage({
 
         <BoardView
           projectId={project.id}
-          statuses={statuses.map((status) => ({ id: status.id, name: status.name, color: status.color }))}
+          actorUserId={user.id}
+          statuses={statuses.map((status) => ({
+            id: status.id,
+            name: status.name,
+            color: status.color,
+            laneVersion: status.lane_version
+          }))}
           tasks={tasks}
           drawerPathname={`/projects/${project.id}`}
         />
