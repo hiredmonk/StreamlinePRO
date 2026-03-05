@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     .from('notifications')
     .select('id, type, channel, entity_type, entity_id, payload_json, read_at, created_at')
     .eq('user_id', user.id)
+    .eq('channel', 'in_app')
     .order('created_at', { ascending: false })
     .limit(100);
 
