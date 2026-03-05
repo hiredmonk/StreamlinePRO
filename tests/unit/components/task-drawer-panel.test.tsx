@@ -12,7 +12,11 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('@/lib/actions/form-actions', () => ({
   addCommentFromForm: vi.fn(),
+  createRecurrenceFromForm: vi.fn(),
   createTaskFromForm: vi.fn(),
+  pauseRecurrenceFromForm: vi.fn(),
+  resumeRecurrenceFromForm: vi.fn(),
+  updateRecurrenceFromForm: vi.fn(),
   updateTaskFromForm: vi.fn(),
   uploadTaskAttachmentFromForm: vi.fn()
 }));
@@ -22,6 +26,9 @@ describe('TaskDrawerPanel', () => {
     render(
       <TaskDrawerPanel
         closeHref="/my-tasks"
+        workspaceId="w1"
+        actorUserId="u1"
+        recurrence={null}
         statuses={[{ id: 's1', name: 'To do' }]}
         sections={[{ id: 'sec1', name: 'Backlog' }]}
         subtasks={[]}

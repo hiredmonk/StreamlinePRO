@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommentFromForm,
+  createRecurrenceFromForm,
   createProjectStatusFromForm,
   createProjectFromForm,
   createTaskFromForm,
   createWorkspaceFromForm,
   deleteProjectStatusFromForm,
   markNotificationReadFromForm,
+  pauseRecurrenceFromForm,
   reorderProjectStatusesFromForm,
+  resumeRecurrenceFromForm,
+  updateRecurrenceFromForm,
   updateProjectStatusFromForm,
   updateTaskFromForm
 } from '@/lib/actions/form-actions';
@@ -26,6 +30,12 @@ import {
   createWorkspaceAction
 } from '@/lib/actions/project-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
+import {
+  createRecurrenceAction,
+  pauseRecurrenceAction,
+  resumeRecurrenceAction,
+  updateRecurrenceAction
+} from '@/lib/actions/recurrence-actions';
 
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 vi.mock('@/lib/actions/project-actions', () => ({
@@ -46,6 +56,12 @@ vi.mock('@/lib/actions/task-actions', () => ({
 }));
 vi.mock('@/lib/actions/inbox-actions', () => ({
   markNotificationReadAction: vi.fn()
+}));
+vi.mock('@/lib/actions/recurrence-actions', () => ({
+  createRecurrenceAction: vi.fn(),
+  updateRecurrenceAction: vi.fn(),
+  pauseRecurrenceAction: vi.fn(),
+  resumeRecurrenceAction: vi.fn()
 }));
 
 describe('form actions', () => {
@@ -214,6 +230,111 @@ describe('form actions', () => {
     formData.set('title', 'Edited');
 
     await expect(updateTaskFromForm(formData)).rejects.toThrow('update failed');
+  });
+
+  it('forwards recurrence create/update/pause/resume forms', async () => {
+    vi.mocked(createRecurrenceAction).mockResolvedValue({
+      ok: true,
+      data: {
+        recurrence: {
+          id: 'r1',
+          workspaceId: 'w1',
+          pattern: { frequency: 'weekly', interval: 2 },
+          mode: 'create_on_complete',
+          nextRunAt: null,
+          isPaused: false,
+          linkedTaskIds: ['t1']
+        }
+      }
+    });
+    vi.mocked(updateRecurrenceAction).mockResolvedValue({
+      ok: true,
+      data: {
+        recurrence: {
+          id: 'r1',
+          workspaceId: 'w1',
+          pattern: { frequency: 'monthly', interval: 1 },
+          mode: 'create_on_schedule',
+          nextRunAt: '2026-03-15T10:00:00.000Z',
+          isPaused: false,
+          linkedTaskIds: ['t1']
+        }
+      }
+    });
+    vi.mocked(pauseRecurrenceAction).mockResolvedValue({
+      ok: true,
+      data: {
+        recurrenceId: 'r1',
+        isPaused: true,
+        pausedAt: '2026-03-01T00:00:00.000Z'
+      }
+    });
+    vi.mocked(resumeRecurrenceAction).mockResolvedValue({
+      ok: true,
+      data: {
+        recurrenceId: 'r1',
+        isPaused: false,
+        resumedAt: '2026-03-02T00:00:00.000Z'
+      }
+    });
+
+    const createForm = new FormData();
+    createForm.set('workspaceId', 'w1');
+    createForm.set('taskId', 't1');
+    createForm.set('frequency', 'weekly');
+    createForm.set('interval', '2');
+    createForm.set('mode', 'create_on_complete');
+    createForm.set('anchorDueAtLocal', '2026-02-15T10:30');
+    createForm.set('actorUserId', 'u1');
+    await createRecurrenceFromForm(createForm);
+
+    const updateForm = new FormData();
+    updateForm.set('recurrenceId', 'r1');
+    updateForm.set('frequency', 'monthly');
+    updateForm.set('interval', '1');
+    updateForm.set('mode', 'create_on_schedule');
+    updateForm.set('actorUserId', 'u1');
+    await updateRecurrenceFromForm(updateForm);
+
+    const pauseForm = new FormData();
+    pauseForm.set('recurrenceId', 'r1');
+    pauseForm.set('actorUserId', 'u1');
+    pauseForm.set('reason', 'Waiting for project kickoff');
+    await pauseRecurrenceFromForm(pauseForm);
+
+    const resumeForm = new FormData();
+    resumeForm.set('recurrenceId', 'r1');
+    resumeForm.set('actorUserId', 'u1');
+    await resumeRecurrenceFromForm(resumeForm);
+
+    expect(createRecurrenceAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'w1',
+        taskId: 't1',
+        mode: 'create_on_complete',
+        actorUserId: 'u1'
+      })
+    );
+    expect(updateRecurrenceAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recurrenceId: 'r1',
+        mode: 'create_on_schedule',
+        actorUserId: 'u1'
+      })
+    );
+    expect(pauseRecurrenceAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recurrenceId: 'r1',
+        actorUserId: 'u1',
+        reason: 'Waiting for project kickoff'
+      })
+    );
+    expect(resumeRecurrenceAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recurrenceId: 'r1',
+        actorUserId: 'u1'
+      })
+    );
   });
 
   it('forwards comment and notification read forms', async () => {

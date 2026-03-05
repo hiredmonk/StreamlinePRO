@@ -1,12 +1,17 @@
 import { format } from 'date-fns';
 import {
   addCommentFromForm,
+  createRecurrenceFromForm,
   createTaskFromForm,
+  pauseRecurrenceFromForm,
+  resumeRecurrenceFromForm,
+  updateRecurrenceFromForm,
   updateTaskFromForm,
   uploadTaskAttachmentFromForm
 } from '@/lib/actions/form-actions';
 import { StatusBadge, PriorityBadge } from '@/app/components/ui/badge';
 import { toDateTimeLocalValue } from '@/lib/domain/tasks/format';
+import type { RecurrenceSummary } from '@/lib/contracts/recurrence-management-ui';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
 type TaskDrawerPanelProps = {
@@ -32,6 +37,9 @@ type TaskDrawerPanelProps = {
     created_at: string;
   }>;
   closeHref: string;
+  workspaceId: string;
+  actorUserId: string;
+  recurrence: RecurrenceSummary | null;
 };
 
 export function TaskDrawerPanel({
@@ -42,7 +50,10 @@ export function TaskDrawerPanel({
   comments,
   attachments,
   activity,
-  closeHref
+  closeHref,
+  workspaceId,
+  actorUserId,
+  recurrence
 }: TaskDrawerPanelProps) {
   return (
     <aside className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5">
@@ -121,6 +132,155 @@ export function TaskDrawerPanel({
           Save Task
         </button>
       </form>
+
+      <section className="mt-6">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#5d625d]">Recurrence</h3>
+
+        {!task.recurrence_id ? (
+          <form action={createRecurrenceFromForm} className="mt-2 space-y-2 rounded-xl border border-[#ddd2bc] bg-[#fffdf8] p-3">
+            <input type="hidden" name="workspaceId" value={workspaceId} />
+            <input type="hidden" name="taskId" value={task.id} />
+            <input type="hidden" name="actorUserId" value={actorUserId} />
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-[#6d6f6c]">
+                Frequency
+                <select name="frequency" defaultValue="weekly" className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-[#6d6f6c]">
+                Interval
+                <input
+                  type="number"
+                  name="interval"
+                  min={1}
+                  max={365}
+                  defaultValue={1}
+                  className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3"
+                />
+              </label>
+            </div>
+
+            <label className="grid gap-1 text-xs text-[#6d6f6c]">
+              Mode
+              <select name="mode" defaultValue="create_on_complete" className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3">
+                <option value="create_on_complete">Create next on completion</option>
+                <option value="create_on_schedule">Create on schedule</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-xs text-[#6d6f6c]">
+              Anchor due date (optional when task already has due date)
+              <input
+                type="datetime-local"
+                name="anchorDueAtLocal"
+                defaultValue={toDateTimeLocalValue(task.due_at)}
+                className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3"
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="h-10 w-full rounded-lg border border-[#d8caac] bg-[#f8ecd4] text-sm font-semibold text-[#544932] hover:bg-[#f2e3c3]"
+            >
+              Enable Recurrence
+            </button>
+          </form>
+        ) : recurrence ? (
+          <div className="mt-2 space-y-3 rounded-xl border border-[#ddd2bc] bg-[#fffdf8] p-3">
+            <p className="text-xs text-[#6d6f6c]">
+              Every {recurrence.pattern.interval} {recurrence.pattern.frequency}
+              {recurrence.pattern.interval > 1 ? 's' : ''} · {formatRecurrenceMode(recurrence.mode)}
+            </p>
+            <p className="text-xs text-[#6d6f6c]">
+              State: {recurrence.isPaused ? 'Paused' : 'Active'}
+              {recurrence.nextRunAt
+                ? ` · Next run ${format(new Date(recurrence.nextRunAt), 'MMM d, HH:mm')}`
+                : ''}
+            </p>
+
+            <form action={updateRecurrenceFromForm} className="grid gap-2">
+              <input type="hidden" name="recurrenceId" value={recurrence.id} />
+              <input type="hidden" name="actorUserId" value={actorUserId} />
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="grid gap-1 text-xs text-[#6d6f6c]">
+                  Frequency
+                  <select
+                    name="frequency"
+                    defaultValue={recurrence.pattern.frequency}
+                    className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs text-[#6d6f6c]">
+                  Interval
+                  <input
+                    type="number"
+                    name="interval"
+                    min={1}
+                    max={365}
+                    defaultValue={recurrence.pattern.interval}
+                    className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-1 text-xs text-[#6d6f6c]">
+                Mode
+                <select name="mode" defaultValue={recurrence.mode} className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3">
+                  <option value="create_on_complete">Create next on completion</option>
+                  <option value="create_on_schedule">Create on schedule</option>
+                </select>
+              </label>
+
+              <button
+                type="submit"
+                className="h-10 rounded-lg border border-[#d8caac] bg-[#f8ecd4] text-sm font-semibold text-[#544932] hover:bg-[#f2e3c3]"
+              >
+                Save Recurrence
+              </button>
+            </form>
+
+            {recurrence.isPaused ? (
+              <form action={resumeRecurrenceFromForm}>
+                <input type="hidden" name="recurrenceId" value={recurrence.id} />
+                <input type="hidden" name="actorUserId" value={actorUserId} />
+                <button
+                  type="submit"
+                  className="h-9 w-full rounded-lg border border-[#b8ccb4] bg-[#ebf7ec] text-sm font-semibold text-[#1f6a39] hover:bg-[#dff2e2]"
+                >
+                  Resume Recurrence
+                </button>
+              </form>
+            ) : (
+              <form action={pauseRecurrenceFromForm} className="space-y-2">
+                <input type="hidden" name="recurrenceId" value={recurrence.id} />
+                <input type="hidden" name="actorUserId" value={actorUserId} />
+                <input
+                  name="reason"
+                  placeholder="Reason (optional)"
+                  className="h-10 w-full rounded-lg border border-[#dccfb8] bg-white px-3 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="h-9 w-full rounded-lg border border-[#cf7670] bg-[#ffece8] text-sm font-semibold text-[#9d2f28] hover:bg-[#ffd8d2]"
+                >
+                  Pause Recurrence
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-[#71756f]">Recurrence details are unavailable for this task.</p>
+        )}
+      </section>
 
       <section className="mt-5">
         <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#5d625d]">Subtasks</h3>
@@ -224,4 +384,12 @@ export function TaskDrawerPanel({
       </section>
     </aside>
   );
+}
+
+function formatRecurrenceMode(mode: RecurrenceSummary['mode']) {
+  if (mode === 'create_on_schedule') {
+    return 'Create on schedule';
+  }
+
+  return 'Create on completion';
 }

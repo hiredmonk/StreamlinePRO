@@ -6,6 +6,7 @@ import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
 import { requireUser } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { getRecurrenceSummaryById } from '@/lib/domain/tasks/recurrence-management';
 import {
   getMyTasks,
   getTaskActivity,
@@ -88,6 +89,20 @@ export default async function MyTasksPage({
         getTaskActivity(supabase, selectedTask.id)
       ])
     : [[], [], [], []];
+  const recurrence = selectedTask?.recurrence_id
+    ? await getRecurrenceSummaryById(supabase, selectedTask.recurrence_id)
+    : null;
+  const { data: selectedTaskProject, error: selectedTaskProjectError } = selectedTask
+    ? await supabase
+        .from('projects')
+        .select('workspace_id')
+        .eq('id', selectedTask.project_id)
+        .maybeSingle()
+    : { data: { workspace_id: activeWorkspace.id }, error: null };
+
+  if (selectedTaskProjectError) {
+    throw selectedTaskProjectError;
+  }
 
   const env = getServerEnv();
   const attachmentsWithUrls = await Promise.all(
@@ -187,6 +202,9 @@ export default async function MyTasksPage({
           attachments={attachmentsWithUrls}
           activity={activity}
           closeHref="/my-tasks"
+          workspaceId={selectedTaskProject?.workspace_id ?? activeWorkspace.id}
+          actorUserId={user.id}
+          recurrence={recurrence}
         />
       ) : null}
     </div>
