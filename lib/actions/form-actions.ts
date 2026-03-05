@@ -18,6 +18,11 @@ import {
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
+import {
+  inviteWorkspaceMemberAction,
+  removeWorkspaceMemberAction,
+  updateWorkspaceMemberRoleAction
+} from '@/lib/actions/member-actions';
 
 export async function createWorkspaceFromForm(formData: FormData) {
   const result = await createWorkspaceAction({
@@ -213,6 +218,45 @@ export async function uploadTaskAttachmentFromForm(formData: FormData) {
 export async function markNotificationReadFromForm(formData: FormData) {
   const result = await markNotificationReadAction({
     id: String(formData.get('id') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function inviteWorkspaceMemberFromForm(formData: FormData) {
+  const result = await inviteWorkspaceMemberAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member',
+    invitedByUserId: String(formData.get('invitedByUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateWorkspaceMemberRoleFromForm(formData: FormData) {
+  const result = await updateWorkspaceMemberRoleAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    memberUserId: String(formData.get('memberUserId') ?? ''),
+    nextRole: String(formData.get('nextRole') ?? 'member') === 'admin' ? 'admin' : 'member',
+    actorUserId: String(formData.get('actorUserId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function removeWorkspaceMemberFromForm(formData: FormData) {
+  const result = await removeWorkspaceMemberAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    memberUserId: String(formData.get('memberUserId') ?? ''),
+    actorUserId: String(formData.get('actorUserId') ?? ''),
+    reason: String(formData.get('reason') ?? '') || undefined
   });
 
   if (!result.ok) {

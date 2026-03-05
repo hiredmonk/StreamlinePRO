@@ -6,8 +6,11 @@ import {
   createTaskFromForm,
   createWorkspaceFromForm,
   deleteProjectStatusFromForm,
+  inviteWorkspaceMemberFromForm,
   markNotificationReadFromForm,
+  removeWorkspaceMemberFromForm,
   reorderProjectStatusesFromForm,
+  updateWorkspaceMemberRoleFromForm,
   updateProjectStatusFromForm,
   updateTaskFromForm
 } from '@/lib/actions/form-actions';
@@ -26,6 +29,11 @@ import {
   createWorkspaceAction
 } from '@/lib/actions/project-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
+import {
+  inviteWorkspaceMemberAction,
+  removeWorkspaceMemberAction,
+  updateWorkspaceMemberRoleAction
+} from '@/lib/actions/member-actions';
 
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 vi.mock('@/lib/actions/project-actions', () => ({
@@ -46,6 +54,11 @@ vi.mock('@/lib/actions/task-actions', () => ({
 }));
 vi.mock('@/lib/actions/inbox-actions', () => ({
   markNotificationReadAction: vi.fn()
+}));
+vi.mock('@/lib/actions/member-actions', () => ({
+  inviteWorkspaceMemberAction: vi.fn(),
+  updateWorkspaceMemberRoleAction: vi.fn(),
+  removeWorkspaceMemberAction: vi.fn()
 }));
 
 describe('form actions', () => {
@@ -235,5 +248,81 @@ describe('form actions', () => {
 
     await markNotificationReadFromForm(readForm);
     expect(markNotificationReadAction).toHaveBeenCalled();
+  });
+
+  it('forwards workspace member management forms', async () => {
+    vi.mocked(inviteWorkspaceMemberAction).mockResolvedValue({
+      ok: true,
+      data: {
+        workspaceId: 'w1',
+        memberUserId: 'u2',
+        role: 'member',
+        invitedAt: '2026-02-15T00:00:00.000Z'
+      }
+    });
+    vi.mocked(updateWorkspaceMemberRoleAction).mockResolvedValue({
+      ok: true,
+      data: {
+        workspaceId: 'w1',
+        memberUserId: 'u2',
+        previousRole: 'member',
+        nextRole: 'admin',
+        updatedAt: '2026-02-15T00:00:00.000Z'
+      }
+    });
+    vi.mocked(removeWorkspaceMemberAction).mockResolvedValue({
+      ok: true,
+      data: {
+        workspaceId: 'w1',
+        removedUserId: 'u2',
+        removedAt: '2026-02-15T00:00:00.000Z'
+      }
+    });
+
+    const inviteForm = new FormData();
+    inviteForm.set('workspaceId', 'w1');
+    inviteForm.set('email', 'person@example.com');
+    inviteForm.set('role', 'admin');
+    inviteForm.set('invitedByUserId', 'u1');
+    await inviteWorkspaceMemberFromForm(inviteForm);
+
+    const roleForm = new FormData();
+    roleForm.set('workspaceId', 'w1');
+    roleForm.set('memberUserId', 'u2');
+    roleForm.set('nextRole', 'member');
+    roleForm.set('actorUserId', 'u1');
+    await updateWorkspaceMemberRoleFromForm(roleForm);
+
+    const removeForm = new FormData();
+    removeForm.set('workspaceId', 'w1');
+    removeForm.set('memberUserId', 'u2');
+    removeForm.set('actorUserId', 'u1');
+    removeForm.set('reason', 'offboarded');
+    await removeWorkspaceMemberFromForm(removeForm);
+
+    expect(inviteWorkspaceMemberAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'w1',
+        email: 'person@example.com',
+        role: 'admin',
+        invitedByUserId: 'u1'
+      })
+    );
+    expect(updateWorkspaceMemberRoleAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'w1',
+        memberUserId: 'u2',
+        nextRole: 'member',
+        actorUserId: 'u1'
+      })
+    );
+    expect(removeWorkspaceMemberAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'w1',
+        memberUserId: 'u2',
+        actorUserId: 'u1',
+        reason: 'offboarded'
+      })
+    );
   });
 });
