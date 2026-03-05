@@ -50,7 +50,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Notification data model and write events implemented
 - [x] Inbox page and mark-read flow implemented
 - [x] Due-soon/overdue scheduled generation jobs implemented
-- [ ] Production-grade email notification delivery implemented and verified
+- [x] Production-grade email notification delivery implemented and verified
 - [x] Full @mention fan-out (all mentioned users) implemented
 
 ## 8) Attachments
@@ -106,6 +106,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - Human E2E sign-in validation confirmed on deployed app (Google auth success + post-login persistence) on 2026-02-16
 - Local real-secret startup validation passed: `COREPACK_HOME="$PWD/.corepack" corepack pnpm dev` booted cleanly and `/auth/callback` + `/auth/google` returned expected `307` responses on 2026-02-16
 - Production runtime env audit passed on 2026-02-16: active file `/home/ubuntu/streamlinepro/.env.local`, required keys set/non-placeholder, `/auth/google` and `/auth/callback` redirects verified
+- Production email notifications verified on 2026-03-05: sender `support@streamlinepro.online`, production links use `https://streamlinepro.online`, endpoint `POST /api/jobs/email-notifications` returns successful summary, and scheduled workflow `Email Notification Dispatch` executed successfully.
 
 ## 13) PRD Acceptance Closure
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
@@ -117,8 +118,8 @@ These are pending items that require your access, credentials, or product decisi
 - Runbook for one-by-one execution: `StreamlinePRO/HumanActionClosureRunbook.md`
 - Supporting benchmark profile: `StreamlinePRO/SearchBenchmarkProfile.md`
 - Supporting RLS matrix: `StreamlinePRO/RLSValidationMatrix.md`
-- [ ] Production-grade email notification delivery implemented and verified
-  - Default provider path is documented for Resend; you need to provide production credentials (`EMAIL_PROVIDER_API_KEY`, sender domain/address) and complete DNS verification.
+- [x] Production-grade email notification delivery implemented and verified
+  - Completed on 2026-03-05 (Resend domain verified, production credentials configured, dispatch endpoint + scheduled workflow validated).
 - [ ] Search performance benchmark (<1s target) validated with realistic data volume
   - Baseline profile is defined in `StreamlinePRO/SearchBenchmarkProfile.md`; you need to approve it (or adjust it) and run the benchmark on realistic data.
 - [ ] Multi-user RLS behavior validated via integration scenarios
