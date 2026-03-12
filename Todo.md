@@ -2,6 +2,7 @@
 _Last updated: 2026-03-12_
 
 Status rule used here: **checked = implemented in repository code**. Unchecked items are pending, partial, or environment-validated work.
+Priority tags used here: **P0 = launch-critical**, **P1 = next milestone / core adoption**, **P2 = polish / follow-on usability**.
 
 ## 1) Foundation
 - [x] Next.js + TypeScript scaffold created
@@ -24,11 +25,11 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Project creation flow implemented
 - [x] Default statuses and sections auto-created on project creation
 - [x] Projects listing view with task and overdue counts
-- [ ] Member invite/remove/role-management UX completed
-- [ ] Workspace onboarding checklist guides first-time admin from workspace creation to first project
-- [ ] Pending invites and member directory UI implemented for workspace admins
-- [ ] Project membership management UX completed for private projects
-- [ ] Projects listing shows member counts alongside task and overdue counts
+- [ ] [P0] Member invite/remove/role-management UX completed
+- [ ] [P1] Workspace onboarding checklist guides first-time admin from workspace creation to first project
+- [ ] [P0] Pending invites and member directory UI implemented for workspace admins
+- [ ] [P1] Project membership management UX completed for private projects
+- [ ] [P2] Projects listing shows member counts alongside task and overdue counts
 
 ## 4) Tasks Core
 - [x] Quick Add task flow implemented
@@ -37,26 +38,26 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Task complete action implemented
 - [x] Task drawer with details, subtasks, and comments implemented
 - [x] Task activity log display implemented
-- [ ] Assignee display/edit UX implemented in task row, task drawer, and project board cards
-- [ ] My Tasks filters by project and status implemented
-- [ ] One-click task filters implemented for Waiting, due this week, and unassigned work
-- [ ] Quick Add flow supports contextual assignee/priority defaults without forcing users into the drawer
-- [ ] Follow-up task creation flow implemented from task drawer and task completion path
-- [ ] Keyboard shortcut system implemented
-- [ ] Command palette (`Ctrl/Cmd + K`) implemented
+- [ ] [P0] Assignee display/edit UX implemented in task row, task drawer, and project board cards
+- [ ] [P1] My Tasks filters by project and status implemented
+- [ ] [P1] One-click task filters implemented for Waiting, due this week, and unassigned work
+- [ ] [P1] Quick Add flow supports contextual assignee/priority defaults without forcing users into the drawer
+- [ ] [P1] Follow-up task creation flow implemented from task drawer and task completion path
+- [ ] [P2] Keyboard shortcut system implemented
+- [ ] [P2] Command palette (`Ctrl/Cmd + K`) implemented
 
 ## 5) Board
 - [x] Project board view implemented
 - [x] Drag/drop status movement implemented with optimistic client update
-- [ ] Quick add card per board column implemented
-- [ ] Board cards show assignee, due date, and comment/follow-up signals at a glance
-- [ ] Robust concurrent ordering strategy finalized
+- [ ] [P1] Quick add card per board column implemented
+- [ ] [P1] Board cards show assignee, due date, and comment/follow-up signals at a glance
+- [ ] [P1] Robust concurrent ordering strategy finalized
 
 ## 6) Recurrence & Templates
 - [x] Recurrence create-next-on-complete logic implemented
-- [ ] Recurrence management UI (create/edit/pause/resume) implemented
-- [ ] Project templates feature implemented
-- [ ] First-workflow setup path supports starting from a template or default workflow recipe
+- [ ] [P1] Recurrence management UI (create/edit/pause/resume) implemented
+- [ ] [P1] Project templates feature implemented
+- [ ] [P2] First-workflow setup path supports starting from a template or default workflow recipe
 
 ## 7) Notifications
 - [x] Notification data model and write events implemented
@@ -64,7 +65,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Due-soon/overdue scheduled generation jobs implemented
 - [x] Production-grade email notification delivery implemented and verified
 - [x] Full @mention fan-out (all mentioned users) implemented
-- [ ] Inbox quick actions expanded for open in context, mark read, and snooze/dismiss decisions
+- [ ] [P2] Inbox quick actions expanded for open in context, mark read, and snooze/dismiss decisions
 
 ## 8) Attachments
 - [x] Attachment upload action implemented
@@ -77,21 +78,21 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Global task search UI implemented
 - [x] `/api/search` endpoint implemented
 - [x] Search results grouped by project in UI
-- [ ] Search performance benchmark (<1s target) validated with realistic data volume
+- [ ] [P1] Search performance benchmark (<1s target) validated with realistic data volume
 
 ## 10) Database & Security
 - [x] Initial schema migration created
 - [x] RLS policies and helper authorization SQL functions created
 - [x] Indexes added (including trigram for title search)
 - [x] Migration applied to target Supabase project
-- [ ] Multi-user RLS behavior validated via integration scenarios
+- [ ] [P0] Multi-user RLS behavior validated via integration scenarios
 
 ## 11) Environment & Deployment
 - [x] `.env.local.example` created
 - [x] `.env.local` placeholder template created
 - [x] Real secrets populated locally
 - [x] Hosting platform/server runtime env vars configured with real values
-- [ ] Deployment smoke test completed
+- [ ] [P0] Deployment smoke test completed
 
 ## 12) Quality Gates
 - [x] Unit tests for recurrence/date helpers added
@@ -122,19 +123,19 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - Production email notifications verified on 2026-03-05: sender `support@streamlinepro.online`, production links use `https://streamlinepro.online`, endpoint `POST /api/jobs/email-notifications` returns successful summary, and scheduled workflow `Email Notification Dispatch` executed successfully.
 
 ## 13) UX Journey & Adoption
-- [ ] Sign-in page explains what happens after Google auth and what first-time users should do next
-- [ ] Empty states guide users from no workspace -> first workspace -> first project -> first task
-- [ ] Post-workspace creation flow offers the next obvious action: invite team or create first project
-- [ ] Post-project creation flow offers the next obvious action: refine statuses and add first tasks
-- [ ] Workflow setup UI explains statuses, done lanes, and when teams should use Waiting vs Doing
-- [ ] Task assignment flow is obvious enough for managers to assign work without opening multiple screens
-- [ ] Task detail view makes subtasks, comments, attachments, and follow-up actions feel like one workflow instead of separate forms
-- [ ] Task completion flow supports closing the loop: mark done, capture outcome, and create follow-up when needed
-- [ ] Success/error feedback is standardized across all forms with clear inline validation and non-blocking confirmations
+- [ ] [P1] Sign-in page explains what happens after Google auth and what first-time users should do next
+- [ ] [P1] Empty states guide users from no workspace -> first workspace -> first project -> first task
+- [ ] [P1] Post-workspace creation flow offers the next obvious action: invite team or create first project
+- [ ] [P1] Post-project creation flow offers the next obvious action: refine statuses and add first tasks
+- [ ] [P1] Workflow setup UI explains statuses, done lanes, and when teams should use Waiting vs Doing
+- [ ] [P1] Task assignment flow is obvious enough for managers to assign work without opening multiple screens
+- [ ] [P1] Task detail view makes subtasks, comments, attachments, and follow-up actions feel like one workflow instead of separate forms
+- [ ] [P1] Task completion flow supports closing the loop: mark done, capture outcome, and create follow-up when needed
+- [ ] [P2] Success/error feedback is standardized across all forms with clear inline validation and non-blocking confirmations
 
 ## 14) PRD Acceptance Closure
-- [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
-- [ ] Remaining gaps prioritized into next milestone/sprint plan
+- [ ] [P0] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
+- [ ] [P1] Remaining gaps prioritized into next milestone/sprint plan
 
 ## Owner / Human Action Required
 These are pending items that require your access, credentials, or product decisions before I can close them:
