@@ -1,12 +1,5 @@
 import Link from 'next/link';
-import { requireUser } from '@/lib/auth';
-
-type SearchTask = {
-  id: string;
-  title: string;
-  project_id: string;
-  projects: { name: string } | { name: string }[] | null;
-};
+import { loadSearchPageData } from '@/lib/page-loaders/search-page';
 
 export default async function SearchPage({
   searchParams
@@ -14,40 +7,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const params = await searchParams;
-  const query = (params.q ?? '').trim();
-  const { supabase } = await requireUser();
-
-  const { data: results, error } = query
-    ? await supabase
-        .from('tasks')
-        .select(
-          `
-          id,
-          title,
-          project_id,
-          projects!tasks_project_id_fkey (
-            name
-          )
-        `
-        )
-        .ilike('title', `%${query}%`)
-        .order('updated_at', { ascending: false })
-        .limit(100)
-    : { data: [], error: null };
-
-  if (error) {
-    throw error;
-  }
-
-  const normalizedResults = (results ?? []) as SearchTask[];
-
-  const groupedResults = normalizedResults.reduce<Record<string, SearchTask[]>>((acc, task) => {
-    const project = Array.isArray(task.projects) ? task.projects[0] : task.projects;
-    const key = project?.name ?? 'Unknown project';
-    acc[key] ??= [];
-    acc[key].push(task);
-    return acc;
-  }, {});
+  const { query, results, groupedResults } = await loadSearchPageData(params);
 
   return (
     <div className="space-y-4">
@@ -73,7 +33,7 @@ export default async function SearchPage({
       {query ? (
         <section className="space-y-3">
           <p className="text-sm text-[#5d625d]">
-            {normalizedResults.length} results for &ldquo;{query}&rdquo;
+            {results.length} results for &ldquo;{query}&rdquo;
           </p>
           <div className="space-y-4">
             {Object.entries(groupedResults).map(([projectName, projectTasks]) => (

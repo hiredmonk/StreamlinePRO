@@ -1,9 +1,9 @@
-import { formatDistanceToNowStrict } from 'date-fns';
 import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from 'lucide-react';
 import { completeTaskFromForm, updateTaskFromForm } from '@/lib/actions/form-actions';
-import { formatDueDate, toDateTimeLocalValue } from '@/lib/domain/tasks/format';
+import { toDateTimeLocalValue } from '@/lib/domain/tasks/format';
 import { PriorityBadge, StatusBadge } from '@/app/components/ui/badge';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
+import { getTaskRowMeta } from '@/lib/view-models/task-row';
 
 type TaskRowProps = {
   task: TaskWithRelations;
@@ -13,7 +13,7 @@ type TaskRowProps = {
 };
 
 export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowProps) {
-  const isOverdue = Boolean(task.due_at && !task.completed_at && new Date(task.due_at) < new Date());
+  const { dueLabel, isOverdue, relativeDueLabel, sectionLabel } = getTaskRowMeta(task);
 
   return (
     <article className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4">
@@ -24,7 +24,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
           </a>
           <p className="mt-1 text-xs text-[#6b6f6a]">
             {task.project.name}
-            {task.section ? ` · ${task.section.name}` : ''}
+            {sectionLabel ? ` · ${sectionLabel}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -36,12 +36,12 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-[#5d625d]">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
-          {formatDueDate(task.due_at)}
+          {dueLabel}
         </span>
-        {task.due_at ? (
+        {relativeDueLabel ? (
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
-            {formatDistanceToNowStrict(new Date(task.due_at), { addSuffix: true })}
+            {relativeDueLabel}
           </span>
         ) : null}
         {isOverdue ? (
