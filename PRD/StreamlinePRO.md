@@ -104,6 +104,11 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 - Roles: **Admin**, **Member** (MVP).
 - Workspace admin management lives in an admin-only **Team access** panel on the active workspace Projects page (`/projects?workspace=<id>`).
 - Team access includes an invite form, a pending invite list, and a member directory.
+- After a user creates their first workspace, the app should open that active workspace directly and show an admin-only onboarding checklist on Projects.
+- The onboarding checklist should guide the admin through:
+  - invite teammates (optional; pending invites count as progress)
+  - create the first project
+  - add the first task
 - P0 invite acceptance is Google-first and app-sent:
   - admin submits email + role
   - the app sends the invite email
@@ -119,6 +124,7 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 - Admin can add/remove members.
 - Removed member loses access immediately.
 - Admin can invite, cancel pending invites, update roles, and remove members from the Team access panel.
+- First-time workspace admins land in the created workspace and see clear next-step guidance for invite/create-project/add-first-task setup.
 - Sign-in shows invite context and a clear error when the invite is invalid or the authenticated email does not match the invited email.
 - Invite acceptance is idempotent for the referenced invite.
 - Removing a member also removes their workspace-scoped `project_members` rows and unassigns their incomplete tasks in that workspace.
@@ -139,6 +145,7 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 **Acceptance criteria**
 - User with access can create/edit project.
 - Projects show task counts and overdue counts.
+- When a workspace has no projects yet, the active Projects view makes "create first project" the obvious next action.
 
 ---
 
@@ -173,6 +180,7 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
   - task row
   - task drawer
   - project board cards
+- Empty project detail should show a short setup guide that points users to workflow status lanes and Quick Add until the first task exists.
 - Assignee eligibility rules:
   - `workspace_visible` project: any workspace member can be assigned
   - `private` project: only current project members can be assigned
@@ -395,7 +403,7 @@ Projects page:
 - **Inline edit** everywhere (owner/due/status)
 - **Keyboard shortcuts** (at least: new task, complete, open drawer)
 - **Command palette** (optional but very “rich” feel): Ctrl/⌘+K for quick navigation/actions
-- **Empty states that teach**: first-time project shows “Add your first task” + a 10-second guide
+- **Empty states that teach**: guide users from no workspace -> first workspace -> first project -> first task, with an optional invite-teammates step for admins and a first-project setup guide that points to workflow lanes + Quick Add
 - **One-click filters**: Overdue, Due this week, Waiting, Unassigned
 - **“Waiting” state**: encourages moving stuck work out of “Doing”
 

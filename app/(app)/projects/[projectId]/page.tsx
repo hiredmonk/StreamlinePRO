@@ -4,6 +4,7 @@ import { QuickAddForm } from '@/app/components/tasks/quick-add-form';
 import { TaskRow } from '@/app/components/tasks/task-row';
 import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
 import { BoardView } from '@/app/components/projects/board-view';
+import { ProjectSetupGuidePanel } from '@/app/components/projects/project-setup-guide';
 import { WorkflowStatusManager } from '@/app/components/projects/workflow-status-manager';
 import { loadProjectDetailPageData } from '@/lib/page-loaders/project-detail-page';
 
@@ -41,7 +42,10 @@ export default async function ProjectDetailPage({
           </div>
         </section>
 
+        {pageData.setupGuide ? <ProjectSetupGuidePanel guide={pageData.setupGuide} /> : null}
+
         <QuickAddForm
+          id="quick-add-form"
           projects={[
             {
               id: pageData.project.id,
@@ -52,6 +56,7 @@ export default async function ProjectDetailPage({
         />
 
         <WorkflowStatusManager
+          id="workflow-status-manager"
           projectId={pageData.project.id}
           statuses={pageData.workflowOptions.managerStatuses}
         />
@@ -75,7 +80,7 @@ export default async function ProjectDetailPage({
         ) : (
           <EmptyState
             title="No tasks yet"
-            description="Use Quick Add above to create your first task in this project."
+            description="Use the setup guide above to review the workflow and create the first task in this project."
           />
         )}
 

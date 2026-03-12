@@ -93,8 +93,66 @@ describe('loadProjectDetailPageData', () => {
         initials: 'AL'
       }
     ]);
+    expect(result?.setupGuide).toEqual({
+      title: 'Set up this project in two quick steps',
+      description: 'Review the default status lanes, then add the first task without leaving the page.',
+      actions: [
+        { label: 'Review status lanes', href: '#workflow-status-manager' },
+        { label: 'Add first task', href: '#quick-add-form' }
+      ],
+      tips: [
+        'Keep the default lanes if they already fit. You can rename or reorder them later.',
+        'Create one real task first so the team can validate status flow before adding more.'
+      ]
+    });
     expect(result?.selectedTaskPanel).toBeNull();
     expect(loadTaskDrawerDataForTask).not.toHaveBeenCalled();
+  });
+
+  it('omits the setup guide when the project already has tasks', async () => {
+    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
+    vi.mocked(getProjectById).mockResolvedValue({
+      id: 'p1',
+      workspaceId: 'w1',
+      name: 'Core',
+      description: null,
+      privacy: 'workspace_visible',
+      taskCount: 1,
+      overdueCount: 0
+    });
+    vi.mocked(getProjectStatuses).mockResolvedValue([
+      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0 }
+    ]);
+    vi.mocked(getProjectSections).mockResolvedValue([{ id: 'sec1', name: 'Backlog', sort_order: 0 }]);
+    vi.mocked(getProjectTasks).mockResolvedValue([
+      {
+        id: 't1',
+        project_id: 'p1',
+        section_id: null,
+        status_id: 'todo',
+        title: 'Task',
+        description: null,
+        assignee_id: null,
+        creator_id: 'u1',
+        due_at: null,
+        due_timezone: null,
+        priority: null,
+        parent_task_id: null,
+        recurrence_id: null,
+        is_today: false,
+        sort_order: 1,
+        completed_at: null,
+        project: { id: 'p1', name: 'Core' },
+        status: { id: 'todo', name: 'To do', color: '#111111', is_done: false },
+        section: null
+      }
+    ]);
+    vi.mocked(loadProjectAssignees).mockResolvedValue({ p1: [] });
+    vi.mocked(getTaskById).mockResolvedValue(null);
+
+    const result = await loadProjectDetailPageData('p1', {});
+
+    expect(result?.setupGuide).toBeNull();
   });
 });
 

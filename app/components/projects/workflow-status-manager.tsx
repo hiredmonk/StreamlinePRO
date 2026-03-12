@@ -15,11 +15,12 @@ type WorkflowStatusManagerProps = {
     color: string;
     is_done: boolean;
   }>;
+  id?: string;
 };
 
-export function WorkflowStatusManager({ projectId, statuses }: WorkflowStatusManagerProps) {
+export function WorkflowStatusManager({ projectId, statuses, id }: WorkflowStatusManagerProps) {
   return (
-    <section className="glass-panel space-y-4 p-5">
+    <section id={id} className="glass-panel space-y-4 p-5">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-[#6f675d]">Workflow settings</p>
         <h2 className="text-2xl font-semibold text-[#1f241f]" style={{ fontFamily: 'var(--font-display)' }}>

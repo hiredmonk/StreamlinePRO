@@ -26,7 +26,7 @@ Priority tags used here: **P0 = launch-critical**, **P1 = next milestone / core 
 - [x] Default statuses and sections auto-created on project creation
 - [x] Projects listing view with task and overdue counts
 - [x] [P0] Member invite/remove/role-management UX completed in the admin-only Team access panel on `/projects?workspace=<id>`
-- [ ] [P1] Workspace onboarding checklist guides first-time admin from workspace creation to first project
+- [x] [P1] Workspace onboarding checklist guides first-time admin from workspace creation to first project
 - [x] [P0] Pending invites and member directory UI implemented for workspace admins (create + cancel only; resend deferred)
 - [ ] [P1] Project membership management UX completed for private projects
 - [ ] [P2] Projects listing shows member counts alongside task and overdue counts
@@ -134,9 +134,9 @@ Scope note for the P0 assignee slice:
 
 ## 13) UX Journey & Adoption
 - [ ] [P1] Sign-in page explains what happens after Google auth and what first-time users should do next
-- [ ] [P1] Empty states guide users from no workspace -> first workspace -> first project -> first task
-- [ ] [P1] Post-workspace creation flow offers the next obvious action: invite team or create first project
-- [ ] [P1] Post-project creation flow offers the next obvious action: refine statuses and add first tasks
+- [x] [P1] Empty states guide users from no workspace -> first workspace -> first project -> first task
+- [x] [P1] Post-workspace creation flow offers the next obvious action: invite team or create first project
+- [x] [P1] Post-project creation flow offers the next obvious action: refine statuses and add first tasks
 - [ ] [P1] Workflow setup UI explains statuses, done lanes, and when teams should use Waiting vs Doing
 - [ ] [P1] Task assignment flow is obvious enough for managers to assign work without opening multiple screens
 - [ ] [P1] Task detail view makes subtasks, comments, attachments, and follow-up actions feel like one workflow instead of separate forms

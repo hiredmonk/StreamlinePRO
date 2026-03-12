@@ -7,12 +7,14 @@ import {
 import { getTaskById, getProjectTasks } from '@/lib/domain/tasks/queries';
 import { loadProjectAssignees } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerDataForTask } from '@/lib/page-loaders/task-drawer';
+import { buildProjectSetupGuide, type ProjectSetupGuide } from '@/lib/view-models/onboarding';
 
 export type ProjectDetailPageData = {
   project: NonNullable<Awaited<ReturnType<typeof getProjectById>>>;
   tasks: Awaited<ReturnType<typeof getProjectTasks>>;
   assignees: Awaited<ReturnType<typeof loadProjectAssignees>>[string];
   workflowOptions: ReturnType<typeof buildProjectWorkflowOptions>;
+  setupGuide: ProjectSetupGuide | null;
   selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerDataForTask>> | null;
 };
 
@@ -45,6 +47,7 @@ export async function loadProjectDetailPageData(
     tasks,
     assignees: assigneesByProject[project.id] ?? [],
     workflowOptions: buildProjectWorkflowOptions(statuses, sections),
+    setupGuide: buildProjectSetupGuide(tasks.length),
     selectedTaskPanel
   };
 }

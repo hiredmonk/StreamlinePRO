@@ -35,7 +35,12 @@ export async function createWorkspaceFromForm(formData: FormData) {
     throw new Error(result.error);
   }
 
-  redirect('/projects');
+  const redirectTo =
+    String(formData.get('redirectTo') ?? 'workspace-detail') === 'workspace-directory'
+      ? '/projects'
+      : `/projects?workspace=${result.data.workspaceId}`;
+
+  redirect(redirectTo);
 }
 
 export async function createProjectFromForm(formData: FormData) {

@@ -65,7 +65,7 @@ describe('form actions', () => {
     vi.clearAllMocks();
   });
 
-  it('creates workspace then redirects on success', async () => {
+  it('creates a first workspace then redirects to the active workspace on success', async () => {
     vi.mocked(createWorkspaceAction).mockResolvedValue({
       ok: true,
       data: { workspaceId: 'w1' }
@@ -77,6 +77,22 @@ describe('form actions', () => {
     await createWorkspaceFromForm(formData);
 
     expect(createWorkspaceAction).toHaveBeenCalledWith({ name: 'Ops', icon: undefined });
+    expect(redirect).toHaveBeenCalledWith('/projects?workspace=w1');
+  });
+
+  it('creates an additional workspace then redirects to the workspace directory when requested', async () => {
+    vi.mocked(createWorkspaceAction).mockResolvedValue({
+      ok: true,
+      data: { workspaceId: 'w2' }
+    });
+
+    const formData = new FormData();
+    formData.set('name', 'Client Ops');
+    formData.set('redirectTo', 'workspace-directory');
+
+    await createWorkspaceFromForm(formData);
+
+    expect(createWorkspaceAction).toHaveBeenCalledWith({ name: 'Client Ops', icon: undefined });
     expect(redirect).toHaveBeenCalledWith('/projects');
   });
 
