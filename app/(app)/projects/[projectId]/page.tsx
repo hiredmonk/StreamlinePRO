@@ -42,6 +42,8 @@ export default async function ProjectDetailPage({
           </div>
         </section>
 
+        {pageData.setupGuide ? <ProjectSetupGuidePanel guide={pageData.setupGuide} /> : null}
+
         <QuickAddForm
           id="quick-add-form"
           projects={[
@@ -52,8 +54,6 @@ export default async function ProjectDetailPage({
           ]}
           preselectedProjectId={pageData.project.id}
         />
-
-        {pageData.setupGuide ? <ProjectSetupGuidePanel guide={pageData.setupGuide} /> : null}
 
         <WorkflowStatusManager
           id="workflow-status-manager"

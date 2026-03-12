@@ -17,7 +17,10 @@ export default async function ProjectsPage({
 
   if (pageData.mode === 'no-workspaces') {
     return (
-      <CreateWorkspaceForm description="Start with one workspace. After this, you will create a first project and add a first task." />
+      <CreateWorkspaceForm
+        redirectTo="workspace-detail"
+        description="Start with one workspace. After this, you will create a first project and add a first task."
+      />
     );
   }
 
@@ -44,6 +47,7 @@ export default async function ProjectsPage({
         <CreateWorkspaceForm
           title="Create another workspace"
           description="Set up a separate workspace for a new team, client, or initiative."
+          redirectTo="workspace-directory"
         />
       </div>
     );

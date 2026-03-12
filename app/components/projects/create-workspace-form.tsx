@@ -3,13 +3,16 @@ import { Button } from '@/app/components/ui/button';
 
 export function CreateWorkspaceForm({
   title = 'Create your first workspace',
-  description = 'Workspaces hold projects, teams, and permissions.'
+  description = 'Workspaces hold projects, teams, and permissions.',
+  redirectTo = 'workspace-detail'
 }: {
   title?: string;
   description?: string;
+  redirectTo?: 'workspace-detail' | 'workspace-directory';
 }) {
   return (
     <form action={createWorkspaceFromForm} className="glass-panel mx-auto grid max-w-xl gap-3 p-5">
+      <input type="hidden" name="redirectTo" value={redirectTo} />
       <h2 className="text-2xl font-semibold text-[#1f241f]" style={{ fontFamily: 'var(--font-display)' }}>
         {title}
       </h2>
