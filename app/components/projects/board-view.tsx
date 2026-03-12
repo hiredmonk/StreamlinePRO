@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
 import { moveTaskAction } from '@/lib/actions/task-actions';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
+import { useBoardTasks } from '@/lib/hooks/use-board-tasks';
 
 type BoardViewProps = {
   projectId: string;
@@ -12,51 +12,11 @@ type BoardViewProps = {
 };
 
 export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardViewProps) {
-  const [items, setItems] = useState(tasks);
-  const [isPending, startTransition] = useTransition();
-
-  const groupedByStatus = useMemo(() => {
-    return statuses.map((status) => ({
-      ...status,
-      items: items
-        .filter((task) => task.status_id === status.id)
-        .sort((a, b) => a.sort_order - b.sort_order)
-    }));
-  }, [statuses, items]);
-
-  function onDrop(taskId: string, statusId: string) {
-    const previous = items;
-    const nextSortOrder = previous.filter((task) => task.status_id === statusId).length + 1;
-
-    setItems((current) =>
-      current.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status_id: statusId,
-              status: {
-                ...task.status,
-                id: statusId,
-                name: statuses.find((status) => status.id === statusId)?.name ?? task.status.name
-              },
-              sort_order: nextSortOrder
-            }
-          : task
-      )
-    );
-
-    startTransition(async () => {
-      const result = await moveTaskAction({
-        id: taskId,
-        statusId,
-        sortOrder: nextSortOrder
-      });
-
-      if (!result.ok) {
-        setItems(previous);
-      }
-    });
-  }
+  const { columns, isPending, moveTask } = useBoardTasks({
+    tasks,
+    statuses,
+    moveTask: moveTaskAction
+  });
 
   return (
     <section className="space-y-3">
@@ -74,7 +34,7 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
           className="grid min-w-max gap-3"
           style={{ gridTemplateColumns: `repeat(${Math.max(statuses.length, 1)}, minmax(220px, 1fr))` }}
         >
-        {groupedByStatus.map((column) => (
+        {columns.map((column) => (
           <div
             key={column.id}
             className="rounded-2xl border border-[#d9cfb9] bg-[#fff9ef] p-3"
@@ -82,7 +42,7 @@ export function BoardView({ projectId, statuses, tasks, drawerPathname }: BoardV
             onDrop={(event) => {
               const taskId = event.dataTransfer.getData('text/task-id');
               if (taskId) {
-                onDrop(taskId, column.id);
+                void moveTask(taskId, column.id);
               }
             }}
           >

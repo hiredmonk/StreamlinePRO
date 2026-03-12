@@ -1,5 +1,5 @@
 # StreamlinePRO Architecture
-_Last updated: 2026-02-15_
+_Last updated: 2026-03-12_
 
 ## Scope
 This document reflects the **current implementation in this repository** and highlights what is still pending for full PRD alignment.
@@ -17,14 +17,18 @@ This document reflects the **current implementation in this repository** and hig
 1. Presentation layer
 - Routes in `app/(app)/*`, `app/(auth)/*`
 - Reusable components in `app/components/*`
+- Server pages stay thin and delegate orchestration to `lib/page-loaders/*`
+- Client hooks are used only for client-owned interaction state such as optimistic board movement and route-derived sidebar state
 - Task details remain in context via drawer/query-param pattern (`?task=<id>`)
 
 2. Application layer
 - Server actions in `lib/actions/*` are the primary mutation interface
 - Route handlers in `app/api/*` support HTTP-style access for search/inbox/tasks
+- Page loaders in `lib/page-loaders/*` assemble authenticated page data and reusable page-level view models
 
 3. Domain/query layer
 - Read/query and domain logic in `lib/domain/*`
+- Presenter helpers in `lib/view-models/*` normalize display metadata without introducing React state
 - Recurrence logic in `lib/domain/tasks/recurrence.ts`
 
 4. Data/security layer
@@ -63,6 +67,7 @@ This document reflects the **current implementation in this repository** and hig
 - Complete task action
 - Project board drag/drop status movement
 - Task drawer for details/subtasks/comments/attachments/activity
+- Shared task drawer data is loaded through reusable loader logic instead of duplicated per-page orchestration
 
 4. Recurrence
 - On completion, recurring tasks generate next instance (create-next-on-complete path)
@@ -76,6 +81,18 @@ This document reflects the **current implementation in this repository** and hig
 - Results grouped by project in UI
 
 ## Interfaces
+### Page loaders
+- `loadPrivateLayoutData`
+- `loadProjectsPageData`
+- `loadMyTasksPageData`
+- `loadProjectDetailPageData`
+- `loadTaskDrawerData`
+- `loadSearchPageData`
+
+### Client hooks
+- `useBoardTasks`
+- `useSidebarNavigationState`
+
 ### Server actions
 - Project/workspace: `createWorkspaceAction`, `createProjectAction`
 - Tasks: `createTaskAction`, `updateTaskAction`, `moveTaskAction`, `completeTaskAction`, `addCommentAction`, `uploadTaskAttachmentAction`
@@ -91,7 +108,7 @@ This document reflects the **current implementation in this repository** and hig
 - Asana-style core shell and task/project flows are implemented
 - Database schema and RLS baseline are implemented
 - Env templates and CI/test scaffolding are present
-- Comprehensive unit coverage now exists for implemented server actions, route handlers, domain helpers, validators, and key UI components
+- Comprehensive unit coverage now exists for implemented server actions, route handlers, page loaders, client hooks, presenter helpers, validators, and key UI components
 
 ## Known Gaps / Pending Work
 - Full project/member management UX (invites, role edits, removals)

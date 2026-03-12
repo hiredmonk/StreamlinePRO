@@ -1,5 +1,5 @@
 # StreamlinePRO Todo
-_Last updated: 2026-02-16_
+_Last updated: 2026-03-12_
 
 Status rule used here: **checked = implemented in repository code**. Unchecked items are pending, partial, or environment-validated work.
 
@@ -25,6 +25,10 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Default statuses and sections auto-created on project creation
 - [x] Projects listing view with task and overdue counts
 - [ ] Member invite/remove/role-management UX completed
+- [ ] Workspace onboarding checklist guides first-time admin from workspace creation to first project
+- [ ] Pending invites and member directory UI implemented for workspace admins
+- [ ] Project membership management UX completed for private projects
+- [ ] Projects listing shows member counts alongside task and overdue counts
 
 ## 4) Tasks Core
 - [x] Quick Add task flow implemented
@@ -33,18 +37,26 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Task complete action implemented
 - [x] Task drawer with details, subtasks, and comments implemented
 - [x] Task activity log display implemented
+- [ ] Assignee display/edit UX implemented in task row, task drawer, and project board cards
+- [ ] My Tasks filters by project and status implemented
+- [ ] One-click task filters implemented for Waiting, due this week, and unassigned work
+- [ ] Quick Add flow supports contextual assignee/priority defaults without forcing users into the drawer
+- [ ] Follow-up task creation flow implemented from task drawer and task completion path
 - [ ] Keyboard shortcut system implemented
 - [ ] Command palette (`Ctrl/Cmd + K`) implemented
 
 ## 5) Board
 - [x] Project board view implemented
 - [x] Drag/drop status movement implemented with optimistic client update
+- [ ] Quick add card per board column implemented
+- [ ] Board cards show assignee, due date, and comment/follow-up signals at a glance
 - [ ] Robust concurrent ordering strategy finalized
 
 ## 6) Recurrence & Templates
 - [x] Recurrence create-next-on-complete logic implemented
 - [ ] Recurrence management UI (create/edit/pause/resume) implemented
 - [ ] Project templates feature implemented
+- [ ] First-workflow setup path supports starting from a template or default workflow recipe
 
 ## 7) Notifications
 - [x] Notification data model and write events implemented
@@ -52,6 +64,7 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - [x] Due-soon/overdue scheduled generation jobs implemented
 - [x] Production-grade email notification delivery implemented and verified
 - [x] Full @mention fan-out (all mentioned users) implemented
+- [ ] Inbox quick actions expanded for open in context, mark read, and snooze/dismiss decisions
 
 ## 8) Attachments
 - [x] Attachment upload action implemented
@@ -108,7 +121,18 @@ Status rule used here: **checked = implemented in repository code**. Unchecked i
 - Production runtime env audit passed on 2026-02-16: active file `/home/ubuntu/streamlinepro/.env.local`, required keys set/non-placeholder, `/auth/google` and `/auth/callback` redirects verified
 - Production email notifications verified on 2026-03-05: sender `support@streamlinepro.online`, production links use `https://streamlinepro.online`, endpoint `POST /api/jobs/email-notifications` returns successful summary, and scheduled workflow `Email Notification Dispatch` executed successfully.
 
-## 13) PRD Acceptance Closure
+## 13) UX Journey & Adoption
+- [ ] Sign-in page explains what happens after Google auth and what first-time users should do next
+- [ ] Empty states guide users from no workspace -> first workspace -> first project -> first task
+- [ ] Post-workspace creation flow offers the next obvious action: invite team or create first project
+- [ ] Post-project creation flow offers the next obvious action: refine statuses and add first tasks
+- [ ] Workflow setup UI explains statuses, done lanes, and when teams should use Waiting vs Doing
+- [ ] Task assignment flow is obvious enough for managers to assign work without opening multiple screens
+- [ ] Task detail view makes subtasks, comments, attachments, and follow-up actions feel like one workflow instead of separate forms
+- [ ] Task completion flow supports closing the loop: mark done, capture outcome, and create follow-up when needed
+- [ ] Success/error feedback is standardized across all forms with clear inline validation and non-blocking confirmations
+
+## 14) PRD Acceptance Closure
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
 - [ ] Remaining gaps prioritized into next milestone/sprint plan
 

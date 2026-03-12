@@ -1,9 +1,8 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ProjectsPage from '@/app/(app)/projects/page';
-import { requireUser } from '@/lib/auth';
-import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: any) => (
@@ -12,27 +11,19 @@ vi.mock('next/link', () => ({
     </a>
   )
 }));
-vi.mock('@/lib/auth', () => ({ requireUser: vi.fn() }));
-vi.mock('@/lib/domain/projects/queries', () => ({
-  getWorkspacesForUser: vi.fn(),
-  getProjectsForWorkspace: vi.fn()
+vi.mock('@/lib/page-loaders/projects-page', () => ({
+  loadProjectsPageData: vi.fn()
 }));
 
 describe('ProjectsPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(requireUser).mockResolvedValue({
-      user: { id: '11111111-1111-4111-8111-111111111111' } as never,
-      supabase: { from: vi.fn() } as never
+  it('renders all workspaces view when loader returns workspace directory mode', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-directory',
+      workspaces: [
+        { id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' },
+        { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
+      ]
     });
-  });
-
-  it('renders all workspaces view when workspace is not selected', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' },
-      { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
 
     render(await ProjectsPage({ searchParams: Promise.resolve({}) }));
 
@@ -43,15 +34,15 @@ describe('ProjectsPage', () => {
       'href',
       '/projects?workspace=new'
     );
-    expect(getProjectsForWorkspace).not.toHaveBeenCalled();
   });
 
-  it('renders active workspace project list when workspace query is selected', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' },
-      { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+  it('renders active workspace project list when loader returns workspace detail mode', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-detail',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' },
+      projects: []
+    });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
 
@@ -59,14 +50,13 @@ describe('ProjectsPage', () => {
     expect(screen.getByText('Ops')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('w1')).toHaveAttribute('name', 'workspaceId');
-    expect(getProjectsForWorkspace).toHaveBeenCalledWith(expect.anything(), 'w1');
   });
 
-  it('renders create workspace flow when workspace query is new', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+  it('renders create workspace flow when loader returns create workspace mode', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'create-workspace',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' }]
+    });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'new' }) }));
 
@@ -77,6 +67,5 @@ describe('ProjectsPage', () => {
       'href',
       '/projects'
     );
-    expect(getProjectsForWorkspace).not.toHaveBeenCalled();
   });
 });

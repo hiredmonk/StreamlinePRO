@@ -1,11 +1,9 @@
 import { InboxList } from '@/app/components/inbox/inbox-list';
 import { EmptyState } from '@/app/components/ui/empty-state';
-import { requireUser } from '@/lib/auth';
-import { getInboxItems } from '@/lib/domain/inbox/queries';
+import { loadInboxPageData } from '@/lib/page-loaders/inbox-page';
 
 export default async function InboxPage() {
-  const { user, supabase } = await requireUser();
-  const items = await getInboxItems(supabase, user.id);
+  const { items } = await loadInboxPageData();
 
   return (
     <div className="space-y-4">

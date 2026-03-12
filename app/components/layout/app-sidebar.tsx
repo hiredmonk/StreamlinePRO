@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { Bell, FolderOpenDot, Home, Search } from 'lucide-react';
+import { useSidebarNavigationState } from '@/lib/hooks/use-sidebar-navigation-state';
 import { cn } from '@/lib/utils';
 
 type SidebarProps = {
@@ -23,11 +23,7 @@ const navItems = [
 ] as const;
 
 export function AppSidebar({ workspaces, userEmail }: SidebarProps) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const isProjectsRoute = pathname.startsWith('/projects');
-  const activeWorkspaceId = isProjectsRoute ? searchParams.get('workspace') : null;
-  const allWorkspacesActive = isProjectsRoute && !activeWorkspaceId;
+  const { activeWorkspaceId, allWorkspacesActive, isItemActive } = useSidebarNavigationState();
 
   return (
     <aside className="border-r border-[#dfd7c1] bg-[#fffdf6]/80 px-6 py-8 backdrop-blur-sm">
@@ -44,7 +40,7 @@ export function AppSidebar({ workspaces, userEmail }: SidebarProps) {
       <nav className="space-y-1.5">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active = pathname.startsWith(item.href);
+          const active = isItemActive(item.href);
 
           return (
             <Link

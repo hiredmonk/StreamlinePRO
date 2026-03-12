@@ -5,6 +5,7 @@ import {
   reorderProjectStatusesFromForm,
   updateProjectStatusFromForm
 } from '@/lib/actions/form-actions';
+import { getFallbackStatusOptions, swapStatusOrder } from '@/lib/view-models/workflow-statuses';
 
 type WorkflowStatusManagerProps = {
   projectId: string;
@@ -107,13 +108,11 @@ export function WorkflowStatusManager({ projectId, statuses }: WorkflowStatusMan
                   defaultValue={statuses.find((option) => option.id !== status.id)?.id}
                   className="h-10 rounded-lg border border-[#d8ccb3] bg-white px-3 text-sm"
                 >
-                  {statuses
-                    .filter((option) => option.id !== status.id)
-                    .map((option) => (
-                      <option key={option.id} value={option.id}>
-                        Move tasks to {option.name}
-                      </option>
-                    ))}
+                  {getFallbackStatusOptions(statuses, status.id).map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <Button type="submit" tone="danger">
                   Delete lane
@@ -149,20 +148,4 @@ function ReorderStatusForm({
       </Button>
     </form>
   );
-}
-
-function swapStatusOrder(
-  statuses: Array<{ id: string }>,
-  index: number,
-  offset: -1 | 1
-) {
-  const target = index + offset;
-  if (target < 0 || target >= statuses.length) {
-    return statuses.map((status) => status.id);
-  }
-
-  const reordered = statuses.map((status) => status.id);
-  const [moved] = reordered.splice(index, 1);
-  reordered.splice(target, 0, moved);
-  return reordered;
 }

@@ -1,0 +1,93 @@
+import { describe, expect, it, vi } from 'vitest';
+import { buildProjectWorkflowOptions, loadProjectDetailPageData } from '@/lib/page-loaders/project-detail-page';
+import { requireUser } from '@/lib/auth';
+import { getProjectById, getProjectSections, getProjectStatuses } from '@/lib/domain/projects/queries';
+import { getProjectTasks, getTaskById } from '@/lib/domain/tasks/queries';
+import { loadTaskDrawerDataForTask } from '@/lib/page-loaders/task-drawer';
+
+vi.mock('@/lib/auth', () => ({
+  requireUser: vi.fn()
+}));
+vi.mock('@/lib/domain/projects/queries', () => ({
+  getProjectById: vi.fn(),
+  getProjectSections: vi.fn(),
+  getProjectStatuses: vi.fn()
+}));
+vi.mock('@/lib/domain/tasks/queries', () => ({
+  getProjectTasks: vi.fn(),
+  getTaskById: vi.fn()
+}));
+vi.mock('@/lib/page-loaders/task-drawer', () => ({
+  loadTaskDrawerDataForTask: vi.fn()
+}));
+
+describe('loadProjectDetailPageData', () => {
+  it('returns null when the project does not exist', async () => {
+    vi.mocked(requireUser).mockResolvedValue({ supabase: {} as never });
+    vi.mocked(getProjectById).mockResolvedValue(null);
+
+    await expect(loadProjectDetailPageData('missing', {})).resolves.toBeNull();
+  });
+
+  it('ignores a selected task from another project', async () => {
+    vi.mocked(requireUser).mockResolvedValue({ supabase: {} as never });
+    vi.mocked(getProjectById).mockResolvedValue({
+      id: 'p1',
+      workspaceId: 'w1',
+      name: 'Core',
+      description: null,
+      privacy: 'workspace_visible',
+      taskCount: 1,
+      overdueCount: 0
+    });
+    vi.mocked(getProjectStatuses).mockResolvedValue([
+      { id: 'todo', name: 'To do', color: '#111111', is_done: false }
+    ]);
+    vi.mocked(getProjectSections).mockResolvedValue([
+      { id: 'sec1', name: 'Backlog' }
+    ]);
+    vi.mocked(getProjectTasks).mockResolvedValue([]);
+    vi.mocked(getTaskById).mockResolvedValue({
+      id: 't1',
+      project_id: 'p2',
+      section_id: null,
+      status_id: 'todo',
+      title: 'Other',
+      description: null,
+      assignee_id: null,
+      creator_id: 'u1',
+      due_at: null,
+      due_timezone: null,
+      priority: null,
+      parent_task_id: null,
+      recurrence_id: null,
+      is_today: false,
+      sort_order: 1,
+      completed_at: null,
+      project: { id: 'p2', name: 'Other' },
+      status: { id: 'todo', name: 'To do', color: '#111111', is_done: false },
+      section: null
+    });
+
+    const result = await loadProjectDetailPageData('p1', { task: 't1' });
+
+    expect(result?.selectedTaskPanel).toBeNull();
+    expect(loadTaskDrawerDataForTask).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildProjectWorkflowOptions', () => {
+  it('normalizes task and board option groups', () => {
+    expect(
+      buildProjectWorkflowOptions(
+        [{ id: 'todo', name: 'To do', color: '#111111', is_done: false }],
+        [{ id: 'sec1', name: 'Backlog' }]
+      )
+    ).toEqual({
+      taskStatuses: [{ id: 'todo', name: 'To do' }],
+      taskSections: [{ id: 'sec1', name: 'Backlog' }],
+      boardStatuses: [{ id: 'todo', name: 'To do', color: '#111111' }],
+      managerStatuses: [{ id: 'todo', name: 'To do', color: '#111111', is_done: false }]
+    });
+  });
+});
