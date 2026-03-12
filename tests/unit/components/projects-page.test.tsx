@@ -20,7 +20,7 @@ describe('ProjectsPage', () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'workspace-directory',
       workspaces: [
-        { id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' },
+        { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
         { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
       ]
     });
@@ -36,26 +36,41 @@ describe('ProjectsPage', () => {
     );
   });
 
-  it('renders active workspace project list when loader returns workspace detail mode', async () => {
+  it('renders active workspace project list and team access when loader returns workspace detail mode', async () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'workspace-detail',
-      workspaces: [{ id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' }],
-      activeWorkspace: { id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' },
-      projects: []
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+      projects: [],
+      teamAccess: {
+        members: [
+          {
+            userId: 'u1',
+            role: 'admin',
+            createdAt: '2026-03-01T00:00:00.000Z',
+            email: 'alex@example.com',
+            displayName: 'Alex',
+            avatarUrl: null,
+            initials: 'AL'
+          }
+        ],
+        pendingInvites: []
+      }
     });
 
-    render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
+    const { container } = render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
 
     expect(screen.getByText('Active workspace')).toBeInTheDocument();
     expect(screen.getByText('Ops')).toBeInTheDocument();
+    expect(screen.getByText('Members and invites')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('w1')).toHaveAttribute('name', 'workspaceId');
+    expect(container.querySelectorAll('input[name="workspaceId"][value="w1"]').length).toBeGreaterThan(0);
   });
 
   it('renders create workspace flow when loader returns create workspace mode', async () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'create-workspace',
-      workspaces: [{ id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' }]
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }]
     });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'new' }) }));

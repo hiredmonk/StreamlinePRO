@@ -10,6 +10,12 @@ import {
   updateProjectStatusAction
 } from '@/lib/actions/project-actions';
 import {
+  cancelWorkspaceInviteAction,
+  createWorkspaceInviteAction,
+  removeWorkspaceMemberAction,
+  updateWorkspaceMemberRoleAction
+} from '@/lib/actions/workspace-actions';
+import {
   addCommentAction,
   completeTaskAction,
   createTaskAction,
@@ -48,6 +54,51 @@ export async function createProjectFromForm(formData: FormData) {
   }
 
   redirect(`/projects/${result.data.projectId}`);
+}
+
+export async function createWorkspaceInviteFromForm(formData: FormData) {
+  const result = await createWorkspaceInviteAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function cancelWorkspaceInviteFromForm(formData: FormData) {
+  const result = await cancelWorkspaceInviteAction({
+    inviteId: String(formData.get('inviteId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateWorkspaceMemberRoleFromForm(formData: FormData) {
+  const result = await updateWorkspaceMemberRoleAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    userId: String(formData.get('userId') ?? ''),
+    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function removeWorkspaceMemberFromForm(formData: FormData) {
+  const result = await removeWorkspaceMemberAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    userId: String(formData.get('userId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function createProjectStatusFromForm(formData: FormData) {
@@ -118,7 +169,7 @@ export async function createTaskFromForm(formData: FormData) {
     statusId: statusValue === null ? undefined : String(statusValue) || undefined,
     title: String(formData.get('title') ?? ''),
     description: String(formData.get('description') ?? '') || undefined,
-    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || undefined,
+    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || null,
     dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
     dueTimezone: String(formData.get('dueTimezone') ?? '') || null,
     priority: parsePriority(formData.get('priority')),
@@ -141,7 +192,10 @@ export async function updateTaskFromForm(formData: FormData) {
     id: String(formData.get('id') ?? ''),
     title: String(formData.get('title') ?? '') || undefined,
     description: String(formData.get('description') ?? '') || undefined,
-    assigneeId: String(formData.get('assigneeId') ?? '') || undefined,
+    assigneeId:
+      formData.get('assigneeId') === null
+        ? undefined
+        : String(formData.get('assigneeId') ?? '') || null,
     dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
     dueTimezone:
       dueTimezoneValue === null ? undefined : String(dueTimezoneValue) || null,

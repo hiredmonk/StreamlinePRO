@@ -1,4 +1,27 @@
-export default function SignInPage() {
+import { getWorkspaceInviteContext } from '@/lib/domain/workspaces/invites';
+
+const ERROR_MESSAGES: Record<string, string> = {
+  oauth_failed: 'Google sign-in could not be started. Please try again.',
+  invite_invalid: 'This workspace invite is no longer valid. Ask an admin to send a fresh one.',
+  invite_email_mismatch: 'Continue with Google using the email address that received the invite.'
+};
+
+export default async function SignInPage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string; workspaceInvite?: string }>;
+}) {
+  const params = await searchParams;
+  const inviteContext = params.workspaceInvite
+    ? await getWorkspaceInviteContext(params.workspaceInvite)
+    : null;
+  const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
+  const googleHref = inviteContext
+    ? `/auth/google?workspaceInvite=${inviteContext.id}&next=${encodeURIComponent(
+        `/projects?workspace=${inviteContext.workspaceId}`
+      )}`
+    : '/auth/google';
+
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <section className="glass-panel w-full max-w-xl p-8 sm:p-12">
@@ -14,8 +37,27 @@ export default function SignInPage() {
           Sign in with Google to access your workspace, track commitments, and run projects with Asana-style speed.
         </p>
 
+        {inviteContext ? (
+          <div className="mt-6 rounded-2xl border border-[#dcc7a6] bg-[#fff6e7] p-4 text-sm text-[#4f4a3f]">
+            <p className="font-semibold text-[#2d312d]">Invitation ready</p>
+            <p className="mt-1">
+              Join <span className="font-semibold">{inviteContext.workspaceName}</span> as a{' '}
+              <span className="font-semibold">{inviteContext.role}</span>.
+            </p>
+            <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[#7d776a]">
+              Use Google with {inviteContext.email}
+            </p>
+          </div>
+        ) : null}
+
+        {errorMessage ? (
+          <div className="mt-4 rounded-2xl border border-[#e4b5ae] bg-[#fff1ee] p-4 text-sm text-[#8e3429]">
+            {errorMessage}
+          </div>
+        ) : null}
+
         <a
-          href="/auth/google"
+          href={googleHref}
           className="mt-8 inline-flex w-full items-center justify-center rounded-2xl border border-[#d63f2b] bg-[#dd4b39] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#c73b2a]"
         >
           Continue with Google

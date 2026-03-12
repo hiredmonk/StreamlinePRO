@@ -3,6 +3,7 @@ import { buildProjectTaxonomyMaps, loadMyTasksPageData } from '@/lib/page-loader
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
 import { getMyTasks } from '@/lib/domain/tasks/queries';
+import { loadProjectAssignees } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerData } from '@/lib/page-loaders/task-drawer';
 
 vi.mock('@/lib/auth', () => ({
@@ -17,6 +18,9 @@ vi.mock('@/lib/domain/tasks/queries', () => ({
 }));
 vi.mock('@/lib/page-loaders/task-drawer', () => ({
   loadTaskDrawerData: vi.fn()
+}));
+vi.mock('@/lib/page-loaders/project-assignees', () => ({
+  loadProjectAssignees: vi.fn()
 }));
 
 function createSupabaseMock() {
@@ -52,7 +56,7 @@ function createSupabaseMock() {
 describe('loadMyTasksPageData', () => {
   it('returns no-workspaces when the user has none', async () => {
     vi.mocked(requireUser).mockResolvedValue({
-      user: { id: 'u1' },
+      user: { id: 'u1' } as never,
       supabase: createSupabaseMock()
     });
     vi.mocked(getWorkspacesForUser).mockResolvedValue([]);
@@ -60,13 +64,13 @@ describe('loadMyTasksPageData', () => {
     await expect(loadMyTasksPageData({})).resolves.toEqual({ mode: 'no-workspaces' });
   });
 
-  it('builds page state from grouped tasks and selected drawer data', async () => {
+  it('builds page state from grouped tasks, selected drawer data, and assignee options', async () => {
     vi.mocked(requireUser).mockResolvedValue({
-      user: { id: 'u1' },
+      user: { id: 'u1' } as never,
       supabase: createSupabaseMock()
     });
     vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙', role: 'admin' }
+      { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
     ]);
     vi.mocked(getProjectsForWorkspace).mockResolvedValue([
       {
@@ -107,6 +111,17 @@ describe('loadMyTasksPageData', () => {
       upcoming: {}
     });
     vi.mocked(loadTaskDrawerData).mockResolvedValue(null);
+    vi.mocked(loadProjectAssignees).mockResolvedValue({
+      p1: [
+        {
+          userId: 'u1',
+          email: 'alex@example.com',
+          displayName: 'Alex',
+          avatarUrl: null,
+          initials: 'AL'
+        }
+      ]
+    });
 
     const result = await loadMyTasksPageData({ task: 't1' });
 
@@ -115,7 +130,18 @@ describe('loadMyTasksPageData', () => {
       hasAnyTask: true,
       quickAddProjects: [{ id: 'p1', name: 'Core' }],
       statusesByProject: { p1: [{ id: 'todo', name: 'To do', color: '#111111' }] },
-      sectionsByProject: { p1: [{ id: 'sec1', name: 'Backlog' }] }
+      sectionsByProject: { p1: [{ id: 'sec1', name: 'Backlog' }] },
+      assigneesByProject: {
+        p1: [
+          {
+            userId: 'u1',
+            email: 'alex@example.com',
+            displayName: 'Alex',
+            avatarUrl: null,
+            initials: 'AL'
+          }
+        ]
+      }
     });
     expect(loadTaskDrawerData).toHaveBeenCalledWith(expect.anything(), 't1');
   });

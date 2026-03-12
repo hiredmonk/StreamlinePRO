@@ -48,6 +48,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      workspace_invites: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          email: string;
+          role: 'admin' | 'member';
+          invited_by: string;
+          accepted_user_id: string | null;
+          created_at: string;
+          accepted_at: string | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          email: string;
+          role?: 'admin' | 'member';
+          invited_by: string;
+          accepted_user_id?: string | null;
+          created_at?: string;
+          accepted_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          email?: string;
+          role?: 'admin' | 'member';
+          accepted_user_id?: string | null;
+          accepted_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
       projects: {
         Row: {
           id: string;

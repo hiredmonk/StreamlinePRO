@@ -67,6 +67,7 @@ export default async function ProjectDetailPage({
                 task={task}
                 statuses={pageData.workflowOptions.taskStatuses}
                 sections={pageData.workflowOptions.taskSections}
+                assignees={pageData.assignees}
                 drawerHref={`/projects/${pageData.project.id}?task=${task.id}`}
               />
             ))}
@@ -82,6 +83,7 @@ export default async function ProjectDetailPage({
           projectId={pageData.project.id}
           statuses={pageData.workflowOptions.boardStatuses}
           tasks={pageData.tasks}
+          assignees={pageData.assignees}
           drawerPathname={`/projects/${pageData.project.id}`}
         />
       </div>
@@ -91,6 +93,7 @@ export default async function ProjectDetailPage({
           task={pageData.selectedTaskPanel.task}
           statuses={pageData.workflowOptions.taskStatuses}
           sections={pageData.workflowOptions.taskSections}
+          assignees={pageData.assignees}
           subtasks={pageData.selectedTaskPanel.subtasks}
           comments={pageData.selectedTaskPanel.comments}
           attachments={pageData.selectedTaskPanel.attachments}

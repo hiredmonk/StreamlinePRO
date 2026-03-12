@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const projectPrivacySchema = z.enum(['workspace_visible', 'private']);
+export const workspaceRoleSchema = z.enum(['admin', 'member']);
 const statusNameSchema = z
   .string()
   .trim()
@@ -23,9 +24,31 @@ export const createProjectSchema = z.object({
 export const createWorkspaceSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(2, 'Workspace name should have at least 2 characters.')
     .max(80, 'Workspace name should stay below 80 characters.'),
-  icon: z.string().max(12).optional()
+  icon: z.string().trim().max(12).optional()
+});
+
+export const createWorkspaceInviteSchema = z.object({
+  workspaceId: z.uuid(),
+  email: z.string().trim().email('Enter a valid email address.'),
+  role: workspaceRoleSchema.default('member')
+});
+
+export const cancelWorkspaceInviteSchema = z.object({
+  inviteId: z.uuid()
+});
+
+export const updateWorkspaceMemberRoleSchema = z.object({
+  workspaceId: z.uuid(),
+  userId: z.uuid(),
+  role: workspaceRoleSchema
+});
+
+export const removeWorkspaceMemberSchema = z.object({
+  workspaceId: z.uuid(),
+  userId: z.uuid()
 });
 
 export const createProjectStatusSchema = z.object({

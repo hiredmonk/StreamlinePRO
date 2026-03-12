@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
+import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { getNextDueDate, parseRecurrencePattern } from '@/lib/domain/tasks/recurrence';
 import { createTaskSchema, updateTaskSchema, completeTaskSchema, moveTaskSchema, createCommentSchema } from '@/lib/validators/task';
 import { getServerEnv } from '@/lib/env';
@@ -27,6 +28,10 @@ export async function createTaskAction(input: {
 }): Promise<ActionResult<{ taskId: string }>> {
   try {
     const { user, supabase } = await requireUser();
+    const assignmentScope = await getProjectAssignmentScope(supabase, input.projectId);
+    if (!assignmentScope) {
+      throw new Error('Project not found.');
+    }
 
     let statusId = input.statusId;
     if (!statusId) {
@@ -62,8 +67,17 @@ export async function createTaskAction(input: {
       ...input,
       statusId,
       sectionId,
-      assigneeId: input.assigneeId ?? user.id
+      assigneeId:
+        input.assigneeId === undefined
+          ? isAssigneeAllowed(assignmentScope, user.id)
+            ? user.id
+            : null
+          : input.assigneeId
     });
+
+    if (!isAssigneeAllowed(assignmentScope, parsed.assigneeId)) {
+      throw new Error('Assignee is not allowed for this project.');
+    }
 
     const { data: orderRows, error: orderError } = await supabase
       .from('tasks')
@@ -88,7 +102,7 @@ export async function createTaskAction(input: {
         status_id: parsed.statusId,
         title: parsed.title,
         description: parsed.description ?? null,
-        assignee_id: parsed.assigneeId ?? user.id,
+        assignee_id: parsed.assigneeId,
         creator_id: user.id,
         due_at: parsed.dueAt ?? null,
         due_timezone: parsed.dueTimezone ?? null,
@@ -157,6 +171,15 @@ export async function updateTaskAction(input: {
 
     if (existingTaskError || !existingTask) {
       throw existingTaskError ?? new Error('Task not found.');
+    }
+
+    const assignmentScope = await getProjectAssignmentScope(supabase, existingTask.project_id);
+    if (!assignmentScope) {
+      throw new Error('Project not found.');
+    }
+
+    if (parsed.assigneeId !== undefined && !isAssigneeAllowed(assignmentScope, parsed.assigneeId)) {
+      throw new Error('Assignee is not allowed for this project.');
     }
 
     const { error } = await supabase

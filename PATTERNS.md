@@ -24,3 +24,8 @@
 - Keep server-action-backed forms declarative when they do not need client-owned draft state.
 - Do not wrap simple forms in hooks just to standardize the API.
 - Introduce a form hook only when the UI needs client validation, optimistic state, keyboard flow, or progressive enhancement beyond direct form submission.
+
+## Server Profile Enrichment
+- Resolve auth-user profile data on the server inside page loaders or domain helpers, not inside presentational components.
+- Return sanitized view-model fields such as `displayName`, `email`, `avatarUrl`, and fallback initials instead of leaking raw auth rows to the UI.
+- Reuse the same server-side profile mapping for assignee options, member directories, and other people-pickers so access rules and fallback behavior stay consistent.

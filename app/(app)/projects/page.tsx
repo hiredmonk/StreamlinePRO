@@ -3,6 +3,7 @@ import { EmptyState } from '@/app/components/ui/empty-state';
 import { CreateProjectForm } from '@/app/components/projects/create-project-form';
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
+import { TeamAccessPanel } from '@/app/components/projects/team-access-panel';
 import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 
 export default async function ProjectsPage({
@@ -117,6 +118,14 @@ export default async function ProjectsPage({
       </section>
 
       <CreateProjectForm workspaceId={pageData.activeWorkspace.id} />
+
+      {pageData.teamAccess ? (
+        <TeamAccessPanel
+          workspaceId={pageData.activeWorkspace.id}
+          members={pageData.teamAccess.members}
+          pendingInvites={pageData.teamAccess.pendingInvites}
+        />
+      ) : null}
 
       {pageData.projects.length ? (
         <ProjectCardGrid projects={pageData.projects} />

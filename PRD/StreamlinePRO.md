@@ -1,5 +1,5 @@
 # Work Management App (Asana-like) — PRD (Web MVP)
-_Last updated: 2026-02-15_
+_Last updated: 2026-03-12_
 
 ## 0) One-line summary
 A fast, intuitive web app for general teams to plan work, assign responsibility, track due dates, reduce “forgotten tasks,” and standardize repeating workflows—without the heaviness of traditional project tools.
@@ -102,11 +102,26 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 **Requirements**
 - Workspace name, icon (optional).
 - Roles: **Admin**, **Member** (MVP).
-- Invite flow: email invite (or share link) → join workspace.
+- Workspace admin management lives in an admin-only **Team access** panel on the active workspace Projects page (`/projects?workspace=<id>`).
+- Team access includes an invite form, a pending invite list, and a member directory.
+- P0 invite acceptance is Google-first and app-sent:
+  - admin submits email + role
+  - the app sends the invite email
+  - recipient opens the invite link, sees invite context on sign-in, and continues through Google auth
+  - auth callback accepts only the referenced invite and only when the authenticated Google email matches the invited email
+- Generic share-link invites are out of scope for P0.
+- Pending invites support create and cancel in MVP. Resend is out of scope for P0.
+- Role edits and member removal must reject demoting or removing the last workspace admin.
+- Removing a workspace member must also remove that user's `project_members` rows in the workspace and unassign their incomplete tasks in that workspace.
+- Invite flow: app-sent email invite → Google sign-in → accept the referenced workspace invite.
 
 **Acceptance criteria**
 - Admin can add/remove members.
 - Removed member loses access immediately.
+- Admin can invite, cancel pending invites, update roles, and remove members from the Team access panel.
+- Sign-in shows invite context and a clear error when the invite is invalid or the authenticated email does not match the invited email.
+- Invite acceptance is idempotent for the referenced invite.
+- Removing a member also removes their workspace-scoped `project_members` rows and unassigns their incomplete tasks in that workspace.
 
 ---
 
@@ -118,6 +133,7 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 **Requirements**
 - Project fields: name, description (optional), privacy (private / workspace-visible).
 - Project membership: list of users.
+- Private-project membership UI remains out of scope for this P0 feature. Assignee eligibility still depends on project privacy.
 - Sections: “To do”, “Doing”, “Done” default (editable).
 
 **Acceptance criteria**
@@ -135,7 +151,7 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
 **Task fields**
 - Title (required)
 - Description (optional)
-- Assignee (optional, default: creator)
+- Assignee (optional, default: creator only when the creator is eligible for the project's privacy rules; otherwise empty)
 - Due date/time (optional)
 - Status (required; default: “To do”)
 - Priority (optional: Low/Med/High)
@@ -153,12 +169,22 @@ A fast, intuitive web app for general teams to plan work, assign responsibility,
   - comments
   - attachments
   - subtasks
+- Assignee visibility and editing must be available in all three core task surfaces:
+  - task row
+  - task drawer
+  - project board cards
+- Assignee eligibility rules:
+  - `workspace_visible` project: any workspace member can be assigned
+  - `private` project: only current project members can be assigned
+- If a task is created without an assignee and the creator is not eligible under those rules, the task must be saved with no assignee instead of forcing an invalid default.
 
 **Acceptance criteria**
 - Create task from:
   - “Quick Add” (global)
   - inside project section
   - inside board column
+- Task row, task drawer, and board card each show assignee state and allow reassignment without leaving the current view.
+- Invalid assignees are rejected based on project privacy.
 - Completing a task removes it from “Today” view immediately.
 - Editing due date updates its position in “My Tasks” grouping instantly.
 
@@ -303,6 +329,7 @@ Projects page:
   - privacy
   - member count
   - overdue count
+- when the selected workspace user is an admin, the page also shows the workspace **Team access** panel
 
 ---
 
@@ -312,6 +339,7 @@ Projects page:
 ### 7.1 Tables (high level)
 - `workspaces` (id, name, created_by, created_at)
 - `workspace_members` (workspace_id, user_id, role)
+- `workspace_invites` (id, workspace_id, email, role, invited_by, accepted_user_id, created_at, accepted_at, revoked_at)
 - `projects` (id, workspace_id, name, description, privacy, created_at)
 - `project_members` (project_id, user_id, role_optional)
 - `project_statuses` (id, project_id, name, order, is_done)
@@ -328,6 +356,10 @@ Projects page:
     - project is workspace-visible OR user is a project member
   - tasks inside projects they can access
 - Only project members can create/edit tasks.
+- Invite acceptance must require the referenced invite id and a matching authenticated email.
+- Task assignment must enforce project privacy:
+  - `workspace_visible` -> any workspace member
+  - `private` -> current project members only
 
 ---
 
@@ -352,10 +384,14 @@ Projects page:
 5. **Status Chips**
    - readable, consistent, minimal colors
 
+6. **Team Access Panel**
+   - admin-only panel on the active workspace Projects page
+   - invite form, pending invites list, and member directory in one place
+
 ---
 
 ## 9) “Intuitive features” checklist (MVP-friendly)
-- **Smart defaults** (assignee = you, status = To do, due date empty)
+- **Smart defaults** (assignee = you when valid for the project, else empty; status = To do; due date empty)
 - **Inline edit** everywhere (owner/due/status)
 - **Keyboard shortcuts** (at least: new task, complete, open drawer)
 - **Command palette** (optional but very “rich” feel): Ctrl/⌘+K for quick navigation/actions
