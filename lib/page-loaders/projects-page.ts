@@ -5,6 +5,10 @@ import {
   type ProjectSummary,
   type WorkspaceSummary
 } from '@/lib/domain/projects/queries';
+import {
+  loadWorkspaceTeamAccessData,
+  type WorkspaceTeamAccessData
+} from '@/lib/page-loaders/workspace-team-access';
 
 export type ProjectsPageState =
   | {
@@ -23,6 +27,7 @@ export type ProjectsPageState =
       workspaces: WorkspaceSummary[];
       activeWorkspace: WorkspaceSummary;
       projects: ProjectSummary[];
+      teamAccess: WorkspaceTeamAccessData | null;
     };
 
 export async function loadProjectsPageData(search: { workspace?: string }): Promise<ProjectsPageState> {
@@ -50,13 +55,19 @@ export async function loadProjectsPageData(search: { workspace?: string }): Prom
     };
   }
 
-  const projects = await getProjectsForWorkspace(supabase, activeWorkspace.id);
+  const [projects, teamAccess] = await Promise.all([
+    getProjectsForWorkspace(supabase, activeWorkspace.id),
+    activeWorkspace.role === 'admin'
+      ? loadWorkspaceTeamAccessData(supabase, activeWorkspace.id).catch(() => null)
+      : Promise.resolve(null)
+  ]);
 
   return {
     mode: 'workspace-detail',
     workspaces,
     activeWorkspace,
-    projects
+    projects,
+    teamAccess
   };
 }
 

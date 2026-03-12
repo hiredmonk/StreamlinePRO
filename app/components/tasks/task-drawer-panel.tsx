@@ -13,6 +13,13 @@ type TaskDrawerPanelProps = {
   task: TaskWithRelations;
   statuses: Array<{ id: string; name: string }>;
   sections: Array<{ id: string; name: string }>;
+  assignees: Array<{
+    userId: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+    initials: string;
+  }>;
   subtasks: TaskWithRelations[];
   comments: Array<{ id: string; user_id: string; body: string; created_at: string }>;
   attachments: Array<{
@@ -38,12 +45,16 @@ export function TaskDrawerPanel({
   task,
   statuses,
   sections,
+  assignees,
   subtasks,
   comments,
   attachments,
   activity,
   closeHref
 }: TaskDrawerPanelProps) {
+  const currentAssignee = assignees.find((assignee) => assignee.userId === task.assignee_id) ?? null;
+  const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
+
   return (
     <aside className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5">
       <div className="mb-5 flex items-start justify-between gap-2">
@@ -58,9 +69,15 @@ export function TaskDrawerPanel({
         </a>
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <StatusBadge name={task.status.name} />
         <PriorityBadge priority={task.priority} />
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#dccfb8] bg-white px-3 py-1 text-xs text-[#5e635d]">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d8ccb4] bg-[#f8ecd4] text-[11px] font-semibold text-[#5f513d]">
+            {currentAssignee?.initials ?? (hasFormerAssignee ? 'FM' : 'UN')}
+          </span>
+          {currentAssignee?.displayName ?? (hasFormerAssignee ? 'Former member' : 'Unassigned')}
+        </span>
       </div>
 
       <form action={updateTaskFromForm} className="space-y-3 rounded-xl border border-[#ddd2bc] bg-[#fffdf8] p-3">
@@ -105,6 +122,22 @@ export function TaskDrawerPanel({
             </select>
           </label>
         </div>
+        <label className="grid gap-1 text-xs text-[#6d6f6c]">
+          Assignee
+          <select
+            name="assigneeId"
+            defaultValue={task.assignee_id ?? ''}
+            className="h-10 rounded-lg border border-[#dccfb8] bg-white px-3"
+          >
+            <option value="">Unassigned</option>
+            {hasFormerAssignee ? <option value={task.assignee_id ?? ''}>Former member</option> : null}
+            {assignees.map((assignee) => (
+              <option key={assignee.userId} value={assignee.userId}>
+                {assignee.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="grid gap-1 text-xs text-[#6d6f6c]">
           Due Date and Time
           <input

@@ -45,6 +45,7 @@ export default async function MyTasksPage({
                 task={task}
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
+                assignees={pageData.assigneesByProject[task.project_id] ?? []}
                 drawerHref={`/my-tasks?task=${task.id}`}
               />
             ))}
@@ -62,6 +63,7 @@ export default async function MyTasksPage({
                 task={task}
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
+                assignees={pageData.assigneesByProject[task.project_id] ?? []}
                 drawerHref={`/my-tasks?task=${task.id}`}
               />
             ))}
@@ -79,6 +81,7 @@ export default async function MyTasksPage({
                 task={task}
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
+                assignees={pageData.assigneesByProject[task.project_id] ?? []}
                 drawerHref={`/my-tasks?task=${task.id}`}
               />
             ))}
@@ -91,6 +94,7 @@ export default async function MyTasksPage({
           task={pageData.selectedTaskPanel.task}
           statuses={pageData.statusesByProject[pageData.selectedTaskPanel.task.project_id] ?? []}
           sections={pageData.sectionsByProject[pageData.selectedTaskPanel.task.project_id] ?? []}
+          assignees={pageData.assigneesByProject[pageData.selectedTaskPanel.task.project_id] ?? []}
           subtasks={pageData.selectedTaskPanel.subtasks}
           comments={pageData.selectedTaskPanel.comments}
           attachments={pageData.selectedTaskPanel.attachments}

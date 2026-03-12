@@ -6,11 +6,11 @@ import { requireUser } from '@/lib/auth';
 import {
   createProjectSchema,
   createProjectStatusSchema,
-  createWorkspaceSchema,
   deleteProjectStatusSchema,
   reorderProjectStatusesSchema,
   updateProjectStatusSchema
 } from '@/lib/validators/project';
+import { createWorkspaceSchema } from '@/lib/validators/workspace';
 import { DEFAULT_PROJECT_SECTIONS, DEFAULT_PROJECT_STATUSES } from '@/lib/constants/status-colors';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';

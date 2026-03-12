@@ -9,6 +9,7 @@ vi.mock('@/lib/auth', () => ({
 describe('loadSearchPageData', () => {
   it('returns an empty result set without querying for blank input', async () => {
     vi.mocked(requireUser).mockResolvedValue({
+      user: {} as never,
       supabase: {
         from: vi.fn()
       } as never

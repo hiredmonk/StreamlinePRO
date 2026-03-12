@@ -9,11 +9,26 @@ type TaskRowProps = {
   task: TaskWithRelations;
   statuses: Array<{ id: string; name: string }>;
   sections?: Array<{ id: string; name: string }>;
+  assignees?: Array<{
+    userId: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+    initials: string;
+  }>;
   drawerHref: string;
 };
 
-export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowProps) {
+export function TaskRow({
+  task,
+  statuses,
+  sections = [],
+  assignees = [],
+  drawerHref
+}: TaskRowProps) {
   const { dueLabel, isOverdue, relativeDueLabel, sectionLabel } = getTaskRowMeta(task);
+  const currentAssignee = assignees.find((assignee) => assignee.userId === task.assignee_id) ?? null;
+  const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
 
   return (
     <article className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4">
@@ -38,6 +53,12 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
           <CalendarClock className="h-3.5 w-3.5" />
           {dueLabel}
         </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d8ccb4] bg-[#f8ecd4] text-[11px] font-semibold text-[#5f513d]">
+            {currentAssignee?.initials ?? (hasFormerAssignee ? 'FM' : 'UN')}
+          </span>
+          {currentAssignee?.displayName ?? (hasFormerAssignee ? 'Former member' : 'Unassigned')}
+        </span>
         {relativeDueLabel ? (
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
@@ -61,7 +82,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
           </button>
         </form>
 
-        <form action={updateTaskFromForm} className="grid gap-2 sm:grid-cols-4">
+        <form action={updateTaskFromForm} className="grid gap-2 sm:grid-cols-5">
           <input type="hidden" name="id" value={task.id} />
           <input type="hidden" name="title" value={task.title} />
           <input type="hidden" name="description" value={task.description ?? ''} />
@@ -86,6 +107,20 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
             {sections.map((section) => (
               <option key={section.id} value={section.id}>
                 {section.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="assigneeId"
+            defaultValue={task.assignee_id ?? ''}
+            className="h-10 rounded-xl border border-[#d8ceb6] bg-white px-3 text-sm"
+          >
+            <option value="">Unassigned</option>
+            {hasFormerAssignee ? <option value={task.assignee_id ?? ''}>Former member</option> : null}
+            {assignees.map((assignee) => (
+              <option key={assignee.userId} value={assignee.userId}>
+                {assignee.displayName}
               </option>
             ))}
           </select>

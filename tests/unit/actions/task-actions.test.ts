@@ -9,12 +9,18 @@ import {
 } from '@/lib/actions/task-actions';
 import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
+import { getProjectAssignmentScope } from '@/lib/domain/tasks/assignees';
 import { getServerEnv } from '@/lib/env';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseMock } from '@/tests/helpers/supabase-mock';
 
 vi.mock('@/lib/auth', () => ({ requireUser: vi.fn() }));
 vi.mock('@/lib/domain/inbox/events', () => ({ createNotification: vi.fn(async () => undefined) }));
+vi.mock('@/lib/domain/tasks/assignees', () => ({
+  getProjectAssignmentScope: vi.fn(),
+  isAssigneeAllowed: (scope: { assignableUserIds: string[] } | null, assigneeId: string | null | undefined) =>
+    !assigneeId || Boolean(scope?.assignableUserIds.includes(assigneeId))
+}));
 vi.mock('@/lib/env', () => ({ getServerEnv: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
@@ -36,6 +42,12 @@ const ids = {
 describe('task actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'workspace_visible',
+      assignableUserIds: [ids.userA, ids.userB, ids.userC]
+    });
     vi.mocked(getServerEnv).mockReturnValue({
       SUPABASE_STORAGE_BUCKET_ATTACHMENTS: 'task-attachments'
     } as never);
@@ -121,6 +133,31 @@ describe('task actions', () => {
     }
   });
 
+  it('rejects create when assignee is not allowed for the project', async () => {
+    const { supabase } = createSupabaseMock([]);
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'private',
+      assignableUserIds: [ids.userA]
+    });
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createTaskAction({
+      projectId: ids.project,
+      statusId: ids.statusTodo,
+      sectionId: null,
+      title: 'Ship release',
+      assigneeId: ids.userB
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Assignee is not allowed for this project.' });
+  });
+
   it('returns task RLS error message when insert fails', async () => {
     const { supabase } = createSupabaseMock([
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
@@ -193,6 +230,41 @@ describe('task actions', () => {
       supabase,
       expect.objectContaining({ userId: ids.userB, type: 'assignment' })
     );
+  });
+
+  it('rejects update when assignee is not allowed for the project', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            assignee_id: ids.userA,
+            title: 'Original title'
+          },
+          error: null
+        }
+      }
+    ]);
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'private',
+      assignableUserIds: [ids.userA]
+    });
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await updateTaskAction({
+      id: ids.task,
+      assigneeId: ids.userB
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Assignee is not allowed for this project.' });
   });
 
   it('moves task and logs activity', async () => {
@@ -467,3 +539,4 @@ describe('task actions', () => {
     }
   });
 });
+

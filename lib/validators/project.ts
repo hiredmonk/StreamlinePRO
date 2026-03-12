@@ -20,14 +20,6 @@ export const createProjectSchema = z.object({
   privacy: projectPrivacySchema.default('workspace_visible')
 });
 
-export const createWorkspaceSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Workspace name should have at least 2 characters.')
-    .max(80, 'Workspace name should stay below 80 characters.'),
-  icon: z.string().max(12).optional()
-});
-
 export const createProjectStatusSchema = z.object({
   projectId: z.uuid(),
   name: statusNameSchema,

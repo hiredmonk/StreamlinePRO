@@ -24,6 +24,15 @@ describe('TaskDrawerPanel', () => {
         closeHref="/my-tasks"
         statuses={[{ id: 's1', name: 'To do' }]}
         sections={[{ id: 'sec1', name: 'Backlog' }]}
+        assignees={[
+          {
+            userId: 'u2',
+            email: 'owner@example.com',
+            displayName: 'Owner',
+            avatarUrl: null,
+            initials: 'OW'
+          }
+        ]}
         subtasks={[]}
         comments={[]}
         activity={[]}
@@ -64,6 +73,7 @@ describe('TaskDrawerPanel', () => {
     );
 
     expect(screen.getByText('Write spec')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Unassigned')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'brief.pdf' })).toHaveAttribute(
       'href',
       'https://cdn.example.com/brief.pdf'
@@ -72,3 +82,4 @@ describe('TaskDrawerPanel', () => {
     expect(screen.getByText('No comments yet.')).toBeInTheDocument();
   });
 });
+

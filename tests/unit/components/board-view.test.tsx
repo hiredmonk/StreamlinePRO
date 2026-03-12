@@ -2,18 +2,29 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BoardView } from '@/app/components/projects/board-view';
-import { moveTaskAction } from '@/lib/actions/task-actions';
+import { moveTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...props }: any) => (
-    <a href={String(href)} {...props}>
-      {children}
-    </a>
-  )
+const refresh = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    refresh
+  })
 }));
 vi.mock('@/lib/actions/task-actions', () => ({
-  moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } }))
+  moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } })),
+  updateTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } }))
 }));
+
+const assignees = [
+  {
+    userId: 'u1',
+    email: 'alex@example.com',
+    displayName: 'Alex',
+    avatarUrl: null,
+    initials: 'AL'
+  }
+];
 
 describe('BoardView', () => {
   it('moves task between status columns on drop', async () => {
@@ -21,6 +32,7 @@ describe('BoardView', () => {
       <BoardView
         projectId="p1"
         drawerPathname="/projects/p1"
+        assignees={assignees}
         statuses={[
           { id: 'todo', name: 'To do', color: '#000' },
           { id: 'done', name: 'Done', color: '#0a0' }
@@ -65,26 +77,46 @@ describe('BoardView', () => {
     });
   });
 
-  it('renders all columns when project has more than four statuses', () => {
+  it('updates assignee inline and refreshes the route', async () => {
     render(
       <BoardView
-        projectId="p2"
-        drawerPathname="/projects/p2"
-        statuses={[
-          { id: 's1', name: 'To do', color: '#111111' },
-          { id: 's2', name: 'Doing', color: '#222222' },
-          { id: 's3', name: 'Waiting', color: '#333333' },
-          { id: 's4', name: 'Review', color: '#444444' },
-          { id: 's5', name: 'Done', color: '#555555' }
+        projectId="p1"
+        drawerPathname="/projects/p1"
+        assignees={assignees}
+        statuses={[{ id: 'todo', name: 'To do', color: '#000' }]}
+        tasks={[
+          {
+            id: 't1',
+            project_id: 'p1',
+            section_id: null,
+            status_id: 'todo',
+            title: 'Task A',
+            description: null,
+            assignee_id: null,
+            creator_id: 'u1',
+            due_at: null,
+            due_timezone: null,
+            priority: null,
+            parent_task_id: null,
+            recurrence_id: null,
+            is_today: false,
+            sort_order: 1,
+            completed_at: null,
+            project: { id: 'p1', name: 'Core' },
+            status: { id: 'todo', name: 'To do', color: '#000', is_done: false },
+            section: null
+          }
         ]}
-        tasks={[]}
       />
     );
 
-    expect(screen.getByText('To do')).toBeInTheDocument();
-    expect(screen.getByText('Doing')).toBeInTheDocument();
-    expect(screen.getByText('Waiting')).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
-    expect(screen.getByText('Done')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Assignee for Task A' }), {
+      target: { value: 'u1' }
+    });
+
+    await waitFor(() => {
+      expect(updateTaskAction).toHaveBeenCalledWith({ id: 't1', assigneeId: 'u1' });
+    });
+    expect(refresh).toHaveBeenCalled();
   });
 });

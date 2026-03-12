@@ -5,11 +5,13 @@ import {
   getProjectStatuses
 } from '@/lib/domain/projects/queries';
 import { getTaskById, getProjectTasks } from '@/lib/domain/tasks/queries';
+import { loadProjectAssignees } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerDataForTask } from '@/lib/page-loaders/task-drawer';
 
 export type ProjectDetailPageData = {
   project: NonNullable<Awaited<ReturnType<typeof getProjectById>>>;
   tasks: Awaited<ReturnType<typeof getProjectTasks>>;
+  assignees: Awaited<ReturnType<typeof loadProjectAssignees>>[string];
   workflowOptions: ReturnType<typeof buildProjectWorkflowOptions>;
   selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerDataForTask>> | null;
 };
@@ -25,11 +27,12 @@ export async function loadProjectDetailPageData(
     return null;
   }
 
-  const [statuses, sections, tasks, selectedTaskCandidate] = await Promise.all([
+  const [statuses, sections, tasks, selectedTaskCandidate, assigneesByProject] = await Promise.all([
     getProjectStatuses(supabase, project.id),
     getProjectSections(supabase, project.id),
     getProjectTasks(supabase, project.id),
-    search.task ? getTaskById(supabase, search.task) : Promise.resolve(null)
+    search.task ? getTaskById(supabase, search.task) : Promise.resolve(null),
+    loadProjectAssignees(supabase, [project.id])
   ]);
 
   const selectedTaskPanel =
@@ -40,6 +43,7 @@ export async function loadProjectDetailPageData(
   return {
     project,
     tasks,
+    assignees: assigneesByProject[project.id] ?? [],
     workflowOptions: buildProjectWorkflowOptions(statuses, sections),
     selectedTaskPanel
   };

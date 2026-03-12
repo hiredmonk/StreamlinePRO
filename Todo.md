@@ -25,11 +25,16 @@ Priority tags used here: **P0 = launch-critical**, **P1 = next milestone / core 
 - [x] Project creation flow implemented
 - [x] Default statuses and sections auto-created on project creation
 - [x] Projects listing view with task and overdue counts
-- [ ] [P0] Member invite/remove/role-management UX completed
+- [x] [P0] Member invite/remove/role-management UX completed in the admin-only Team access panel on `/projects?workspace=<id>`
 - [ ] [P1] Workspace onboarding checklist guides first-time admin from workspace creation to first project
-- [ ] [P0] Pending invites and member directory UI implemented for workspace admins
+- [x] [P0] Pending invites and member directory UI implemented for workspace admins (create + cancel only; resend deferred)
 - [ ] [P1] Project membership management UX completed for private projects
 - [ ] [P2] Projects listing shows member counts alongside task and overdue counts
+
+Scope note for the P0 member-management slice:
+- Google-first invite acceptance with app-sent invite emails
+- No resend action in P0; cancel + recreate is sufficient
+- Removing a member must unassign their incomplete tasks and remove their `project_members` rows in that workspace
 
 ## 4) Tasks Core
 - [x] Quick Add task flow implemented
@@ -38,13 +43,18 @@ Priority tags used here: **P0 = launch-critical**, **P1 = next milestone / core 
 - [x] Task complete action implemented
 - [x] Task drawer with details, subtasks, and comments implemented
 - [x] Task activity log display implemented
-- [ ] [P0] Assignee display/edit UX implemented in task row, task drawer, and project board cards
+- [x] [P0] Assignee display/edit UX implemented in task row, task drawer, and project board cards
 - [ ] [P1] My Tasks filters by project and status implemented
 - [ ] [P1] One-click task filters implemented for Waiting, due this week, and unassigned work
 - [ ] [P1] Quick Add flow supports contextual assignee/priority defaults without forcing users into the drawer
 - [ ] [P1] Follow-up task creation flow implemented from task drawer and task completion path
 - [ ] [P2] Keyboard shortcut system implemented
 - [ ] [P2] Command palette (`Ctrl/Cmd + K`) implemented
+
+Scope note for the P0 assignee slice:
+- `workspace_visible` projects can assign any workspace member
+- `private` projects can assign only current project members
+- Private-project membership management UI remains out of scope for this P0
 
 ## 5) Board
 - [x] Project board view implemented
@@ -130,7 +140,7 @@ Priority tags used here: **P0 = launch-critical**, **P1 = next milestone / core 
 - [ ] [P1] Workflow setup UI explains statuses, done lanes, and when teams should use Waiting vs Doing
 - [ ] [P1] Task assignment flow is obvious enough for managers to assign work without opening multiple screens
 - [ ] [P1] Task detail view makes subtasks, comments, attachments, and follow-up actions feel like one workflow instead of separate forms
-- [ ] [P1] Task completion flow supports closing the loop: mark done, capture outcome, and create follow-up when needed
+- [ ] [P1] Task completion flow supports closing the loop: mark done, capture outcome, and create follow-up when useful
 - [ ] [P2] Success/error feedback is standardized across all forms with clear inline validation and non-blocking confirmations
 
 ## 14) PRD Acceptance Closure
@@ -148,10 +158,24 @@ These are pending items that require your access, credentials, or product decisi
 - [ ] Search performance benchmark (<1s target) validated with realistic data volume
   - Baseline profile is defined in `StreamlinePRO/SearchBenchmarkProfile.md`; you need to approve it (or adjust it) and run the benchmark on realistic data.
 - [ ] Multi-user RLS behavior validated via integration scenarios
-  - Execution matrix is defined in `StreamlinePRO/RLSValidationMatrix.md`; you need to run it with real users and record pass/fail.
+  - Suggested manual test steps:
+  - Create at least two real users in the same workspace and one user outside the workspace.
+  - Validate `workspace_visible` project access: same-workspace users can see/update allowed records, outside user cannot.
+  - Validate `private` project access: only project members can see tasks, assign tasks, comment, and upload attachments.
+  - Remove one workspace member from Team access and verify incomplete tasks become unassigned and project membership rows are gone.
+  - Attempt invite acceptance with the wrong Google account and confirm the app returns to sign-in with the invite mismatch error.
 - [ ] Deployment smoke test completed
-  - You need to provide target deployment endpoint/environment access and confirm smoke-test checklist scope.
+  - Suggested manual test steps:
+  - Open the deployed app and confirm `/signin`, `/projects`, `/my-tasks`, one project detail page, and board view all render without runtime errors.
+  - Create a task, reassign it, move it across statuses, open the drawer, add a comment, and upload an attachment.
+  - From Team access, create an invite, cancel an invite, and change a member role in a non-last-admin scenario.
+  - Trigger one email/inbox-producing path and verify production links and visible notifications look correct.
+  - Confirm no unexpected redirects, 500s, or console-visible breakage during the flow.
 - [ ] Full PRD acceptance walkthrough completed against `PRD/StreamlinePRO.md`
-  - You need to approve product-level acceptance decisions for each PRD requirement.
+  - Suggested manual test steps:
+  - Walk section by section through `PRD/StreamlinePRO.md` using the deployed app and this Todo list together.
+  - Mark each PRD requirement as pass, fail, or follow-up; capture exact screens/flows for any mismatch.
+  - Confirm the shipped P0 slices cover member management, pending invites, assignee UX, and assignment eligibility rules.
+  - Roll any accepted gaps into the next milestone list instead of silently leaving them ambiguous.
 - [ ] Remaining gaps prioritized into next milestone/sprint plan
   - You need to provide prioritization decisions (business priority, timeline, and scope tradeoffs).

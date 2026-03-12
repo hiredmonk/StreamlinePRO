@@ -25,6 +25,15 @@ describe('TaskRow', () => {
     render(
       <TaskRow
         drawerHref="/my-tasks?task=t1"
+        assignees={[
+          {
+            userId: 'u1',
+            email: 'alex@example.com',
+            displayName: 'Alex',
+            avatarUrl: null,
+            initials: 'AL'
+          }
+        ]}
         statuses={[
           { id: 's1', name: 'To do' },
           { id: 's2', name: 'Done' }
@@ -55,8 +64,10 @@ describe('TaskRow', () => {
     );
 
     expect(screen.getByText('Pay vendors')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Alex')).toBeInTheDocument();
     expect(screen.getByText('Overdue')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
 });
+

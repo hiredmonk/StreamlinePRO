@@ -3,6 +3,7 @@ import { buildProjectWorkflowOptions, loadProjectDetailPageData } from '@/lib/pa
 import { requireUser } from '@/lib/auth';
 import { getProjectById, getProjectSections, getProjectStatuses } from '@/lib/domain/projects/queries';
 import { getProjectTasks, getTaskById } from '@/lib/domain/tasks/queries';
+import { loadProjectAssignees } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerDataForTask } from '@/lib/page-loaders/task-drawer';
 
 vi.mock('@/lib/auth', () => ({
@@ -20,17 +21,20 @@ vi.mock('@/lib/domain/tasks/queries', () => ({
 vi.mock('@/lib/page-loaders/task-drawer', () => ({
   loadTaskDrawerDataForTask: vi.fn()
 }));
+vi.mock('@/lib/page-loaders/project-assignees', () => ({
+  loadProjectAssignees: vi.fn()
+}));
 
 describe('loadProjectDetailPageData', () => {
   it('returns null when the project does not exist', async () => {
-    vi.mocked(requireUser).mockResolvedValue({ supabase: {} as never });
+    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
     vi.mocked(getProjectById).mockResolvedValue(null);
 
     await expect(loadProjectDetailPageData('missing', {})).resolves.toBeNull();
   });
 
-  it('ignores a selected task from another project', async () => {
-    vi.mocked(requireUser).mockResolvedValue({ supabase: {} as never });
+  it('ignores a selected task from another project and returns assignee options', async () => {
+    vi.mocked(requireUser).mockResolvedValue({ user: {} as never, supabase: {} as never });
     vi.mocked(getProjectById).mockResolvedValue({
       id: 'p1',
       workspaceId: 'w1',
@@ -41,12 +45,21 @@ describe('loadProjectDetailPageData', () => {
       overdueCount: 0
     });
     vi.mocked(getProjectStatuses).mockResolvedValue([
-      { id: 'todo', name: 'To do', color: '#111111', is_done: false }
+      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0 }
     ]);
-    vi.mocked(getProjectSections).mockResolvedValue([
-      { id: 'sec1', name: 'Backlog' }
-    ]);
+    vi.mocked(getProjectSections).mockResolvedValue([{ id: 'sec1', name: 'Backlog', sort_order: 0 }]);
     vi.mocked(getProjectTasks).mockResolvedValue([]);
+    vi.mocked(loadProjectAssignees).mockResolvedValue({
+      p1: [
+        {
+          userId: 'u1',
+          email: 'alex@example.com',
+          displayName: 'Alex',
+          avatarUrl: null,
+          initials: 'AL'
+        }
+      ]
+    });
     vi.mocked(getTaskById).mockResolvedValue({
       id: 't1',
       project_id: 'p2',
@@ -71,6 +84,15 @@ describe('loadProjectDetailPageData', () => {
 
     const result = await loadProjectDetailPageData('p1', { task: 't1' });
 
+    expect(result?.assignees).toEqual([
+      {
+        userId: 'u1',
+        email: 'alex@example.com',
+        displayName: 'Alex',
+        avatarUrl: null,
+        initials: 'AL'
+      }
+    ]);
     expect(result?.selectedTaskPanel).toBeNull();
     expect(loadTaskDrawerDataForTask).not.toHaveBeenCalled();
   });

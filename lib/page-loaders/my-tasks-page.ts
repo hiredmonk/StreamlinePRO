@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
 import { getMyTasks, type MyTasksGroups } from '@/lib/domain/tasks/queries';
+import { loadProjectAssignees, type AssigneeOption } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerData } from '@/lib/page-loaders/task-drawer';
 
 type StatusRow = {
@@ -26,6 +27,7 @@ export type MyTasksPageData =
       quickAddProjects: Array<{ id: string; name: string }>;
       statusesByProject: Record<string, Array<{ id: string; name: string; color: string }>>;
       sectionsByProject: Record<string, Array<{ id: string; name: string }>>;
+      assigneesByProject: Record<string, AssigneeOption[]>;
       selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerData>>;
       hasAnyTask: boolean;
     };
@@ -43,11 +45,12 @@ export async function loadMyTasksPageData(search: { task?: string }): Promise<My
   const projects = await getProjectsForWorkspace(supabase, activeWorkspace.id);
   const projectIds = projects.map((project) => project.id);
 
-  const [statusRows, sectionRows, groups, selectedTaskPanel] = await Promise.all([
+  const [statusRows, sectionRows, groups, selectedTaskPanel, assigneesByProject] = await Promise.all([
     loadProjectStatusRows(supabase, projectIds),
     loadProjectSectionRows(supabase, projectIds),
     getMyTasks(supabase, user.id),
-    selectedTaskId ? loadTaskDrawerData(supabase, selectedTaskId) : Promise.resolve(null)
+    selectedTaskId ? loadTaskDrawerData(supabase, selectedTaskId) : Promise.resolve(null),
+    loadProjectAssignees(supabase, projectIds)
   ]);
 
   const { statusesByProject, sectionsByProject } = buildProjectTaxonomyMaps(statusRows, sectionRows);
@@ -62,6 +65,7 @@ export async function loadMyTasksPageData(search: { task?: string }): Promise<My
     quickAddProjects: projects.map((project) => ({ id: project.id, name: project.name })),
     statusesByProject,
     sectionsByProject,
+    assigneesByProject,
     selectedTaskPanel,
     hasAnyTask
   };
