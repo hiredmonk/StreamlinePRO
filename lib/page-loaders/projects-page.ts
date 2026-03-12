@@ -58,7 +58,7 @@ export async function loadProjectsPageData(search: { workspace?: string }): Prom
   const [projects, teamAccess] = await Promise.all([
     getProjectsForWorkspace(supabase, activeWorkspace.id),
     activeWorkspace.role === 'admin'
-      ? loadWorkspaceTeamAccessData(supabase, activeWorkspace.id)
+      ? loadWorkspaceTeamAccessData(supabase, activeWorkspace.id).catch(() => null)
       : Promise.resolve(null)
   ]);
 

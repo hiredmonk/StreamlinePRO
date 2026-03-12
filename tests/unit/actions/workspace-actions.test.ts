@@ -7,6 +7,7 @@ import {
 } from '@/lib/actions/workspace-actions';
 import { requireUser } from '@/lib/auth';
 import { normalizeEmail, sendWorkspaceInviteEmail } from '@/lib/domain/workspaces/invites';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseMock } from '@/tests/helpers/supabase-mock';
 
@@ -15,6 +16,7 @@ vi.mock('@/lib/domain/workspaces/invites', () => ({
   normalizeEmail: (email: string) => email.trim().toLowerCase(),
   sendWorkspaceInviteEmail: vi.fn()
 }));
+vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 const ids = {
@@ -155,6 +157,12 @@ describe('workspace actions', () => {
         }
       },
       {
+        table: 'workspace_members',
+        response: { data: null, error: null }
+      }
+    ]);
+    const { supabase: adminSupabase, history: adminHistory } = createSupabaseMock([
+      {
         table: 'projects',
         response: {
           data: [{ id: ids.project }],
@@ -168,10 +176,6 @@ describe('workspace actions', () => {
       {
         table: 'project_members',
         response: { data: null, error: null }
-      },
-      {
-        table: 'workspace_members',
-        response: { data: null, error: null }
       }
     ]);
 
@@ -179,6 +183,7 @@ describe('workspace actions', () => {
       user: { id: ids.userA } as never,
       supabase: supabase as never
     });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(adminSupabase as never);
 
     const result = await removeWorkspaceMemberAction({
       workspaceId: ids.workspace,
@@ -189,10 +194,10 @@ describe('workspace actions', () => {
       ok: true,
       data: { workspaceId: ids.workspace, userId: ids.userB }
     });
-    expect(history[2]?.chain.update).toHaveBeenCalledWith(
+    expect(adminHistory[1]?.chain.update).toHaveBeenCalledWith(
       expect.objectContaining({ assignee_id: null, updated_at: expect.any(String) })
     );
-    expect(history[3]?.chain.delete).toHaveBeenCalled();
-    expect(history[4]?.chain.delete).toHaveBeenCalled();
+    expect(adminHistory[2]?.chain.delete).toHaveBeenCalled();
+    expect(history[1]?.chain.delete).toHaveBeenCalled();
   });
 });

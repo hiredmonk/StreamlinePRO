@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { acceptWorkspaceInvite } from '@/lib/domain/workspaces/invites';
 import { getClientEnv } from '@/lib/env';
+import { workspaceInviteIdSchema } from '@/lib/validators/workspace';
 
 function isLoopbackHost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname === '::1';
@@ -28,7 +29,13 @@ export async function GET(request: NextRequest) {
   const appOrigin = resolveAppOrigin(env.NEXT_PUBLIC_APP_URL, origin);
   const code = searchParams.get('code');
   const next = sanitizeNextPath(searchParams.get('next'));
-  const workspaceInvite = searchParams.get('workspaceInvite');
+  const workspaceInviteResult = parseWorkspaceInvite(searchParams.get('workspaceInvite'));
+
+  if (workspaceInviteResult === 'invalid') {
+    return NextResponse.redirect(`${appOrigin}/signin?error=invite_invalid`);
+  }
+
+  const workspaceInvite = workspaceInviteResult;
 
   if (code) {
     const supabase = await createServerSupabaseClient();
@@ -82,4 +89,17 @@ function sanitizeNextPath(next: string | null) {
   }
 
   return next;
+}
+
+function parseWorkspaceInvite(workspaceInvite: string | null) {
+  if (!workspaceInvite) {
+    return null;
+  }
+
+  const parsed = workspaceInviteIdSchema.safeParse(workspaceInvite);
+  if (!parsed.success) {
+    return 'invalid' as const;
+  }
+
+  return parsed.data;
 }

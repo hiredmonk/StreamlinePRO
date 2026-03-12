@@ -71,4 +71,24 @@ describe('loadProjectsPageData', () => {
       }
     });
   });
+
+  it('falls back to null team access when the admin panel data fails to load', async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: {} as never
+    });
+    vi.mocked(getWorkspacesForUser).mockResolvedValue([
+      { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
+    ]);
+    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+    vi.mocked(loadWorkspaceTeamAccessData).mockRejectedValue(new Error('boom'));
+
+    await expect(loadProjectsPageData({ workspace: 'w1' })).resolves.toEqual({
+      mode: 'workspace-detail',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+      projects: [],
+      teamAccess: null
+    });
+  });
 });

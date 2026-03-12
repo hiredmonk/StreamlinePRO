@@ -11,6 +11,8 @@ vi.mock('@/lib/domain/workspaces/invites', () => ({ acceptWorkspaceInvite: vi.fn
 vi.mock('@/lib/env', () => ({ getClientEnv: vi.fn() }));
 
 describe('auth routes', () => {
+  const inviteId = '44444444-4444-4444-8444-444444444444';
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getClientEnv).mockReturnValue({
@@ -43,7 +45,7 @@ describe('auth routes', () => {
 
     await getGoogleAuth(
       new Request(
-        'http://localhost/auth/google?workspaceInvite=i1&next=%2Fprojects%3Fworkspace%3Dw1'
+        `http://localhost/auth/google?workspaceInvite=${inviteId}&next=%2Fprojects%3Fworkspace%3Dw1`
       ) as never
     );
 
@@ -51,7 +53,7 @@ describe('auth routes', () => {
       expect.objectContaining({
         options: expect.objectContaining({
           redirectTo:
-            'http://127.0.0.1:3000/auth/callback?next=%2Fprojects%3Fworkspace%3Dw1&workspaceInvite=i1'
+            `http://127.0.0.1:3000/auth/callback?next=%2Fprojects%3Fworkspace%3Dw1&workspaceInvite=${inviteId}`
         })
       })
     );
@@ -87,12 +89,12 @@ describe('auth routes', () => {
 
     const response = await getAuthCallback(
       new Request(
-        'http://localhost/auth/callback?code=abc&workspaceInvite=i1&next=%2Fprojects%3Fworkspace%3Dw1'
+        `http://localhost/auth/callback?code=abc&workspaceInvite=${inviteId}&next=%2Fprojects%3Fworkspace%3Dw1`
       ) as never
     );
 
     expect(acceptWorkspaceInvite).toHaveBeenCalledWith({
-      inviteId: 'i1',
+      inviteId,
       userId: 'u1',
       email: 'alex@example.com'
     });
@@ -116,12 +118,21 @@ describe('auth routes', () => {
     );
 
     const response = await getAuthCallback(
-      new Request('http://localhost/auth/callback?code=abc&workspaceInvite=i1') as never
+      new Request(`http://localhost/auth/callback?code=abc&workspaceInvite=${inviteId}`) as never
     );
 
     expect(response.headers.get('location')).toBe(
-      'http://127.0.0.1:3000/signin?workspaceInvite=i1&error=invite_email_mismatch'
+      `http://127.0.0.1:3000/signin?workspaceInvite=${inviteId}&error=invite_email_mismatch`
     );
+  });
+
+  it('rejects malformed workspace invite ids before invite acceptance runs', async () => {
+    const response = await getAuthCallback(
+      new Request('http://localhost/auth/callback?code=abc&workspaceInvite=not-a-uuid') as never
+    );
+
+    expect(acceptWorkspaceInvite).not.toHaveBeenCalled();
+    expect(response.headers.get('location')).toBe('http://127.0.0.1:3000/signin?error=invite_invalid');
   });
 
   it('redirects to signin when callback has no valid code', async () => {

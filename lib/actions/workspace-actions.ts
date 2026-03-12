@@ -10,6 +10,7 @@ import {
   removeWorkspaceMemberSchema,
   updateWorkspaceMemberRoleSchema
 } from '@/lib/validators/workspace';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
@@ -18,6 +19,8 @@ type WorkspaceMemberMutationRow = {
   user_id: string;
   role: 'admin' | 'member';
 };
+
+type QueryableSupabaseClient = Pick<AppSupabaseClient, 'from'>;
 
 export async function createWorkspaceInviteAction(input: {
   workspaceId: string;
@@ -192,40 +195,10 @@ export async function removeWorkspaceMemberAction(input: {
 
     guardLastAdmin(members, target.user_id, null);
 
-    const { data: projects, error: projectError } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('workspace_id', parsed.workspaceId);
-
-    if (projectError) {
-      throw projectError;
-    }
-
-    const projectIds = (projects ?? []).map((project) => project.id);
+    const adminSupabase = createSupabaseAdminClient();
+    const projectIds = await getWorkspaceProjectIdsForCleanup(adminSupabase, parsed.workspaceId);
     if (projectIds.length) {
-      const { error: unassignError } = await supabase
-        .from('tasks')
-        .update({
-          assignee_id: null,
-          updated_at: new Date().toISOString()
-        })
-        .in('project_id', projectIds)
-        .eq('assignee_id', parsed.userId)
-        .is('completed_at', null);
-
-      if (unassignError) {
-        throw unassignError;
-      }
-
-      const { error: projectMemberDeleteError } = await supabase
-        .from('project_members')
-        .delete()
-        .eq('user_id', parsed.userId)
-        .in('project_id', projectIds);
-
-      if (projectMemberDeleteError) {
-        throw projectMemberDeleteError;
-      }
+      await removeWorkspaceProjectAccess(adminSupabase, projectIds, parsed.userId);
     }
 
     const { error: membershipDeleteError } = await supabase
@@ -266,6 +239,52 @@ async function getWorkspaceMembersForMutation(
   }
 
   return (data ?? []) as WorkspaceMemberMutationRow[];
+}
+
+async function getWorkspaceProjectIdsForCleanup(
+  supabase: QueryableSupabaseClient,
+  workspaceId: string
+) {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('workspace_id', workspaceId);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((project) => project.id);
+}
+
+async function removeWorkspaceProjectAccess(
+  supabase: QueryableSupabaseClient,
+  projectIds: string[],
+  userId: string
+) {
+  const { error: unassignError } = await supabase
+    .from('tasks')
+    .update({
+      assignee_id: null,
+      updated_at: new Date().toISOString()
+    })
+    .in('project_id', projectIds)
+    .eq('assignee_id', userId)
+    .is('completed_at', null);
+
+  if (unassignError) {
+    throw unassignError;
+  }
+
+  const { error: projectMemberDeleteError } = await supabase
+    .from('project_members')
+    .delete()
+    .eq('user_id', userId)
+    .in('project_id', projectIds);
+
+  if (projectMemberDeleteError) {
+    throw projectMemberDeleteError;
+  }
 }
 
 function guardLastAdmin(
