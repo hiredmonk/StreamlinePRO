@@ -36,7 +36,7 @@ describe('ProjectsPage', () => {
     );
   });
 
-  it('renders active workspace project list and team access when loader returns workspace detail mode', async () => {
+  it('renders onboarding checklist for an admin workspace that has no tasks yet', async () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'workspace-detail',
       workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
@@ -55,16 +55,90 @@ describe('ProjectsPage', () => {
           }
         ],
         pendingInvites: []
+      },
+      onboarding: {
+        title: 'Start your first workflow',
+        description:
+          'Create the first project now, then add a task to confirm the workflow end to end.',
+        steps: [
+          {
+            id: 'workspace',
+            title: 'Workspace created',
+            description: 'Your team space is ready.',
+            status: 'complete'
+          },
+          {
+            id: 'invite',
+            title: 'Invite teammates',
+            description: 'Optional for solo setup. A pending invite counts as progress.',
+            status: 'pending',
+            optional: true
+          },
+          {
+            id: 'project',
+            title: 'Create first project',
+            description: 'Start with one project for the team or workflow you are setting up.',
+            status: 'current'
+          },
+          {
+            id: 'task',
+            title: 'Add first task',
+            description: 'Use the first task to confirm the workflow feels right.',
+            status: 'pending'
+          }
+        ],
+        primaryAction: {
+          label: 'Create first project',
+          href: '#create-project-form'
+        },
+        secondaryAction: {
+          label: 'Invite teammates',
+          href: '#team-access-panel'
+        }
       }
     });
 
     const { container } = render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
 
-    expect(screen.getByText('Active workspace')).toBeInTheDocument();
-    expect(screen.getByText('Ops')).toBeInTheDocument();
+    expect(screen.getByText('Workspace onboarding')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create first project' })).toHaveAttribute(
+      'href',
+      '#create-project-form'
+    );
+    expect(screen.getByRole('link', { name: 'Invite teammates' })).toHaveAttribute(
+      'href',
+      '#team-access-panel'
+    );
     expect(screen.getByText('Members and invites')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument();
-    expect(container.querySelectorAll('input[name="workspaceId"][value="w1"]').length).toBeGreaterThan(0);
+    expect(container.querySelector('#create-project-form')).toBeTruthy();
+    expect(container.querySelector('#team-access-panel')).toBeTruthy();
+  });
+
+  it('renders active workspace project list without onboarding when the workspace already has tasks', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-detail',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+      projects: [
+        {
+          id: 'p1',
+          workspaceId: 'w1',
+          name: 'Core',
+          description: null,
+          privacy: 'workspace_visible',
+          taskCount: 1,
+          overdueCount: 0
+        }
+      ],
+      teamAccess: null,
+      onboarding: null
+    });
+
+    render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
+
+    expect(screen.getByText('Active workspace')).toBeInTheDocument();
+    expect(screen.getByText('Core')).toBeInTheDocument();
+    expect(screen.queryByText('Workspace onboarding')).not.toBeInTheDocument();
   });
 
   it('renders create workspace flow when loader returns create workspace mode', async () => {

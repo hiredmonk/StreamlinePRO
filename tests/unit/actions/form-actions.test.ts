@@ -77,7 +77,7 @@ describe('form actions', () => {
     await createWorkspaceFromForm(formData);
 
     expect(createWorkspaceAction).toHaveBeenCalledWith({ name: 'Ops', icon: undefined });
-    expect(redirect).toHaveBeenCalledWith('/projects');
+    expect(redirect).toHaveBeenCalledWith('/projects?workspace=w1');
   });
 
   it('throws when workspace creation fails', async () => {

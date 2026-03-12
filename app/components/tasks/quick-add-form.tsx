@@ -7,13 +7,14 @@ type QuickAddFormProps = {
     name: string;
   }>;
   preselectedProjectId?: string;
+  id?: string;
 };
 
-export function QuickAddForm({ projects, preselectedProjectId }: QuickAddFormProps) {
+export function QuickAddForm({ projects, preselectedProjectId, id }: QuickAddFormProps) {
   const initialProjectId = preselectedProjectId ?? projects[0]?.id ?? '';
 
   return (
-    <form action={createTaskFromForm} className="glass-panel grid gap-3 p-4 sm:grid-cols-[1.2fr_0.8fr_0.8fr_auto]">
+    <form id={id} action={createTaskFromForm} className="glass-panel grid gap-3 p-4 sm:grid-cols-[1.2fr_0.8fr_0.8fr_auto]">
       <input
         required
         name="title"

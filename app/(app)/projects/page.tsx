@@ -4,6 +4,7 @@ import { CreateProjectForm } from '@/app/components/projects/create-project-form
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
 import { TeamAccessPanel } from '@/app/components/projects/team-access-panel';
+import { WorkspaceOnboardingPanel } from '@/app/components/projects/workspace-onboarding-panel';
 import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 
 export default async function ProjectsPage({
@@ -15,7 +16,9 @@ export default async function ProjectsPage({
   const pageData = await loadProjectsPageData(params);
 
   if (pageData.mode === 'no-workspaces') {
-    return <CreateWorkspaceForm />;
+    return (
+      <CreateWorkspaceForm description="Start with one workspace. After this, you will create a first project and add a first task." />
+    );
   }
 
   if (pageData.mode === 'create-workspace') {
@@ -117,10 +120,13 @@ export default async function ProjectsPage({
         </div>
       </section>
 
-      <CreateProjectForm workspaceId={pageData.activeWorkspace.id} />
+      {pageData.onboarding ? <WorkspaceOnboardingPanel onboarding={pageData.onboarding} /> : null}
+
+      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} />
 
       {pageData.teamAccess ? (
         <TeamAccessPanel
+          id="team-access-panel"
           workspaceId={pageData.activeWorkspace.id}
           members={pageData.teamAccess.members}
           pendingInvites={pageData.teamAccess.pendingInvites}
@@ -132,7 +138,11 @@ export default async function ProjectsPage({
       ) : (
         <EmptyState
           title="No projects yet"
-          description="Create your first project above. Sections and statuses are initialized automatically."
+          description={
+            pageData.onboarding
+              ? 'Create your first project above. After that, open it to review the workflow and add the first task.'
+              : 'Create your first project above. Sections and statuses are initialized automatically.'
+          }
         />
       )}
     </div>

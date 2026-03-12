@@ -9,6 +9,10 @@ import {
   loadWorkspaceTeamAccessData,
   type WorkspaceTeamAccessData
 } from '@/lib/page-loaders/workspace-team-access';
+import {
+  buildWorkspaceOnboarding,
+  type WorkspaceOnboardingState
+} from '@/lib/view-models/onboarding';
 
 export type ProjectsPageState =
   | {
@@ -28,6 +32,7 @@ export type ProjectsPageState =
       activeWorkspace: WorkspaceSummary;
       projects: ProjectSummary[];
       teamAccess: WorkspaceTeamAccessData | null;
+      onboarding: WorkspaceOnboardingState | null;
     };
 
 export async function loadProjectsPageData(search: { workspace?: string }): Promise<ProjectsPageState> {
@@ -67,7 +72,16 @@ export async function loadProjectsPageData(search: { workspace?: string }): Prom
     workspaces,
     activeWorkspace,
     projects,
-    teamAccess
+    teamAccess,
+    onboarding: buildWorkspaceOnboarding({
+      isAdmin: activeWorkspace.role === 'admin',
+      projects: projects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        taskCount: project.taskCount
+      })),
+      teamAccess
+    })
   };
 }
 

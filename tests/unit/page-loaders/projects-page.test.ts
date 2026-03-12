@@ -26,7 +26,51 @@ describe('loadProjectsPageData', () => {
     await expect(loadProjectsPageData({})).resolves.toEqual({ mode: 'no-workspaces' });
   });
 
-  it('returns workspace detail plus team access for a valid admin workspace query', async () => {
+  it('returns onboarding for an admin workspace with no projects yet', async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: {} as never
+    });
+    vi.mocked(getWorkspacesForUser).mockResolvedValue([
+      { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
+    ]);
+    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+    vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
+      members: [
+        {
+          userId: 'u1',
+          role: 'admin',
+          createdAt: '2026-03-01T00:00:00.000Z',
+          email: 'alex@example.com',
+          displayName: 'Alex',
+          avatarUrl: null,
+          initials: 'AL'
+        }
+      ],
+      pendingInvites: []
+    });
+
+    const result = await loadProjectsPageData({ workspace: 'w1' });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        mode: 'workspace-detail',
+        projects: [],
+        teamAccess: expect.objectContaining({
+          members: expect.any(Array),
+          pendingInvites: []
+        }),
+        onboarding: expect.objectContaining({
+          primaryAction: {
+            label: 'Create first project',
+            href: '#create-project-form'
+          }
+        })
+      })
+    );
+  });
+
+  it('returns task-focused onboarding for an admin workspace with a first project', async () => {
     vi.mocked(requireUser).mockResolvedValue({
       user: { id: 'u1' } as never,
       supabase: {} as never
@@ -46,6 +90,68 @@ describe('loadProjectsPageData', () => {
       }
     ]);
     vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
+      members: [
+        {
+          userId: 'u1',
+          role: 'admin',
+          createdAt: '2026-03-01T00:00:00.000Z',
+          email: 'alex@example.com',
+          displayName: 'Alex',
+          avatarUrl: null,
+          initials: 'AL'
+        },
+        {
+          userId: 'u2',
+          role: 'member',
+          createdAt: '2026-03-01T00:00:00.000Z',
+          email: 'sam@example.com',
+          displayName: 'Sam',
+          avatarUrl: null,
+          initials: 'SA'
+        }
+      ],
+      pendingInvites: []
+    });
+
+    const result = await loadProjectsPageData({ workspace: 'w1' });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        mode: 'workspace-detail',
+        onboarding: expect.objectContaining({
+          primaryAction: {
+            label: 'Open Core',
+            href: '/projects/p1#project-setup-guide'
+          },
+          secondaryAction: {
+            label: 'Review invites',
+            href: '#team-access-panel'
+          }
+        })
+      })
+    );
+  });
+
+  it('hides onboarding once the admin workspace already has tasks', async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: {} as never
+    });
+    vi.mocked(getWorkspacesForUser).mockResolvedValue([
+      { id: 'w1', name: 'Ops', icon: null, role: 'admin' }
+    ]);
+    vi.mocked(getProjectsForWorkspace).mockResolvedValue([
+      {
+        id: 'p1',
+        workspaceId: 'w1',
+        name: 'Core',
+        description: null,
+        privacy: 'workspace_visible',
+        taskCount: 2,
+        overdueCount: 0
+      }
+    ]);
+    vi.mocked(loadWorkspaceTeamAccessData).mockResolvedValue({
       members: [],
       pendingInvites: []
     });
@@ -61,18 +167,39 @@ describe('loadProjectsPageData', () => {
           name: 'Core',
           description: null,
           privacy: 'workspace_visible',
-          taskCount: 0,
+          taskCount: 2,
           overdueCount: 0
         }
       ],
       teamAccess: {
         members: [],
         pendingInvites: []
-      }
+      },
+      onboarding: null
     });
   });
 
-  it('falls back to null team access when the admin panel data fails to load', async () => {
+  it('does not return onboarding for non-admin workspaces', async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: 'u1' } as never,
+      supabase: {} as never
+    });
+    vi.mocked(getWorkspacesForUser).mockResolvedValue([
+      { id: 'w1', name: 'Ops', icon: null, role: 'member' }
+    ]);
+    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
+
+    await expect(loadProjectsPageData({ workspace: 'w1' })).resolves.toEqual({
+      mode: 'workspace-detail',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'member' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'member' },
+      projects: [],
+      teamAccess: null,
+      onboarding: null
+    });
+  });
+
+  it('keeps onboarding available when team access data fails to load', async () => {
     vi.mocked(requireUser).mockResolvedValue({
       user: { id: 'u1' } as never,
       supabase: {} as never
@@ -83,12 +210,19 @@ describe('loadProjectsPageData', () => {
     vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
     vi.mocked(loadWorkspaceTeamAccessData).mockRejectedValue(new Error('boom'));
 
-    await expect(loadProjectsPageData({ workspace: 'w1' })).resolves.toEqual({
-      mode: 'workspace-detail',
-      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
-      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
-      projects: [],
-      teamAccess: null
-    });
+    const result = await loadProjectsPageData({ workspace: 'w1' });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        mode: 'workspace-detail',
+        teamAccess: null,
+        onboarding: expect.objectContaining({
+          primaryAction: {
+            label: 'Create first project',
+            href: '#create-project-form'
+          }
+        })
+      })
+    );
   });
 });

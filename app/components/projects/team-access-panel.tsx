@@ -27,12 +27,13 @@ type TeamAccessPanelProps = {
 };
 
 export function TeamAccessPanel({
+  id,
   workspaceId,
   members,
   pendingInvites
-}: TeamAccessPanelProps) {
+}: TeamAccessPanelProps & { id?: string }) {
   return (
-    <section className="glass-panel space-y-5 p-5">
+    <section id={id} className="glass-panel space-y-5 p-5">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-[#6f675d]">Team access</p>
         <h2 className="text-2xl font-semibold text-[#1f241f]" style={{ fontFamily: 'var(--font-display)' }}>

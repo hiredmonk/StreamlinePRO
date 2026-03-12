@@ -3,13 +3,19 @@ import { Button } from '@/app/components/ui/button';
 
 export function CreateProjectForm({
   workspaceId,
-  className
+  className,
+  id
 }: {
   workspaceId: string;
   className?: string;
+  id?: string;
 }) {
   return (
-    <form action={createProjectFromForm} className={className ?? 'glass-panel grid gap-3 p-4 md:grid-cols-4'}>
+    <form
+      id={id}
+      action={createProjectFromForm}
+      className={className ?? 'glass-panel grid gap-3 p-4 md:grid-cols-4'}
+    >
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <input
         required
