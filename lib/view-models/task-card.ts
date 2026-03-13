@@ -1,4 +1,4 @@
-import { formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceStrict } from 'date-fns';
 import { formatDueDate } from '@/lib/domain/tasks/format';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
@@ -8,7 +8,7 @@ export function getTaskCardMeta(task: TaskWithRelations, now = new Date()) {
   return {
     dueLabel: formatDueDate(task.due_at),
     relativeDueLabel: task.due_at
-      ? formatDistanceToNowStrict(new Date(task.due_at), { addSuffix: true })
+      ? formatDistanceStrict(new Date(task.due_at), now, { addSuffix: true })
       : null,
     isOverdue,
     isWaiting: normalizeStatusName(task.status.name) === 'waiting',

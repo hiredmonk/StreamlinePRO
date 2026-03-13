@@ -61,4 +61,15 @@ describe('getTaskCardMeta', () => {
     expect(meta.isWaiting).toBe(true);
     expect(meta.priority).toBe('high');
   });
+
+  it('uses the provided now value for relative due labels', () => {
+    const meta = getTaskCardMeta(
+      buildTask({
+        due_at: '2026-02-14T09:00:00.000Z'
+      }),
+      new Date('2026-02-20T12:00:00.000Z')
+    );
+
+    expect(meta.relativeDueLabel).toBe('6 days ago');
+  });
 });
