@@ -6,6 +6,7 @@ import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
 import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { getNextDueDate, parseRecurrencePattern } from '@/lib/domain/tasks/recurrence';
+import { allocateTaskSortOrder } from '@/lib/domain/tasks/sort-order';
 import {
   createCommentSchema,
   createFollowUpTaskSchema,
@@ -86,18 +87,6 @@ export async function createTaskAction(input: {
       throw new Error('Assignee is not allowed for this project.');
     }
 
-    const { data: orderRows, error: orderError } = await supabase
-      .from('tasks')
-      .select('sort_order')
-      .eq('project_id', parsed.projectId)
-      .order('sort_order', { ascending: false })
-      .limit(1);
-
-    if (orderError) {
-      throw orderError;
-    }
-
-    const nextSortOrder = (orderRows?.[0]?.sort_order ?? 0) + 1;
     const taskId = randomUUID();
 
     const { error } = await supabase
@@ -116,8 +105,7 @@ export async function createTaskAction(input: {
         priority: parsed.priority ?? null,
         parent_task_id: parsed.parentTaskId ?? null,
         recurrence_id: parsed.recurrenceId ?? null,
-        is_today: parsed.isToday ?? false,
-        sort_order: nextSortOrder
+        is_today: parsed.isToday ?? false
       });
 
     if (error) {
@@ -243,8 +231,7 @@ export async function moveTaskAction(input: {
   id: string;
   statusId: string;
   sectionId?: string | null;
-  sortOrder: number;
-}): Promise<ActionResult<{ taskId: string }>> {
+}): Promise<ActionResult<{ taskId: string; sortOrder: number }>> {
   try {
     const parsed = moveTaskSchema.parse(input);
     const { user, supabase } = await requireUser();
@@ -259,12 +246,14 @@ export async function moveTaskAction(input: {
       throw taskError ?? new Error('Task not found.');
     }
 
+    const nextSortOrder = await allocateTaskSortOrder(supabase);
+
     const { error } = await supabase
       .from('tasks')
       .update({
         status_id: parsed.statusId,
         section_id: parsed.sectionId ?? null,
-        sort_order: parsed.sortOrder,
+        sort_order: nextSortOrder,
         updated_at: new Date().toISOString()
       })
       .eq('id', parsed.id);
@@ -282,7 +271,7 @@ export async function moveTaskAction(input: {
 
     revalidateTaskPaths(task.project_id);
 
-    return { ok: true, data: { taskId: parsed.id } };
+    return { ok: true, data: { taskId: parsed.id, sortOrder: nextSortOrder } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
@@ -643,19 +632,6 @@ async function createNextTaskFromRecurrence(
     throw statusError ?? new Error('No open status found for recurring task creation.');
   }
 
-  const { data: orderRows, error: orderError } = await supabase
-    .from('tasks')
-    .select('sort_order')
-    .eq('project_id', completedTask.project_id)
-    .order('sort_order', { ascending: false })
-    .limit(1);
-
-  if (orderError) {
-    throw orderError;
-  }
-
-  const nextSortOrder = (orderRows?.[0]?.sort_order ?? 0) + 1;
-
   const { data: nextTask, error: nextTaskError } = await supabase
     .from('tasks')
     .insert({
@@ -670,8 +646,7 @@ async function createNextTaskFromRecurrence(
       due_timezone: completedTask.due_timezone,
       priority: completedTask.priority,
       recurrence_id: completedTask.recurrence_id,
-      is_today: false,
-      sort_order: nextSortOrder
+      is_today: false
     })
     .select('id')
     .single();

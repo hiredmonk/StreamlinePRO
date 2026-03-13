@@ -12,6 +12,11 @@
   - `useBoardTasks` for optimistic board movement
   - `useSidebarNavigationState` for sidebar route/workspace selection
 
+## Server-Authoritative Append Ordering
+- When cards only need append-to-end ordering, allocate the persisted task rank on the server instead of trusting client-computed counts.
+- Client hooks may still optimistically place a task at the bottom of a lane, but they must reconcile with the canonical `sort_order` returned by the mutation.
+- Use the same ordering allocator for task creation, recurrence-created tasks, API inserts, and board moves so concurrent edits cannot reuse the same rank.
+
 ## Presenter Helper
 - When a component only derives labels, badges, grouping, or ordering from props, prefer a pure helper over a hook.
 - Presenter helpers belong in `lib/view-models/*` and should be testable without React rendering.

@@ -1,10 +1,13 @@
 'use client';
 
+import { CalendarClock, Clock3 } from 'lucide-react';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
+import { createTaskAction, moveTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
+import { PriorityBadge } from '@/app/components/ui/badge';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 import { useBoardTasks } from '@/lib/hooks/use-board-tasks';
+import { getTaskCardMeta } from '@/lib/view-models/task-card';
 
 type BoardViewProps = {
   projectId: string;
@@ -34,7 +37,11 @@ export function BoardView({
   });
   const router = useRouter();
   const [assigneeOverrides, setAssigneeOverrides] = useState<Record<string, string>>({});
+  const [quickAddDrafts, setQuickAddDrafts] = useState<Record<string, string>>({});
+  const [quickAddErrors, setQuickAddErrors] = useState<Record<string, string>>({});
+  const [activeQuickAddStatusId, setActiveQuickAddStatusId] = useState<string | null>(null);
   const [isAssigneePending, startAssigneeTransition] = useTransition();
+  const [isQuickAddPending, startQuickAddTransition] = useTransition();
 
   useEffect(() => {
     setAssigneeOverrides({});
@@ -70,6 +77,67 @@ export function BoardView({
     });
   }
 
+  function openQuickAdd(statusId: string) {
+    setActiveQuickAddStatusId(statusId);
+    setQuickAddErrors((current) => ({
+      ...current,
+      [statusId]: ''
+    }));
+  }
+
+  function closeQuickAdd(statusId: string) {
+    setActiveQuickAddStatusId((current) => (current === statusId ? null : current));
+    setQuickAddDrafts((current) => ({
+      ...current,
+      [statusId]: ''
+    }));
+    setQuickAddErrors((current) => ({
+      ...current,
+      [statusId]: ''
+    }));
+  }
+
+  function saveQuickAdd(statusId: string) {
+    if (isQuickAddPending) {
+      return;
+    }
+
+    const title = (quickAddDrafts[statusId] ?? '').trim();
+    if (!title) {
+      setQuickAddErrors((current) => ({
+        ...current,
+        [statusId]: 'Task title is required.'
+      }));
+      return;
+    }
+
+    setQuickAddErrors((current) => ({
+      ...current,
+      [statusId]: ''
+    }));
+
+    startQuickAddTransition(() => {
+      void (async () => {
+        const result = await createTaskAction({
+          projectId,
+          statusId,
+          title
+        });
+
+        if (!result.ok) {
+          setQuickAddErrors((current) => ({
+            ...current,
+            [statusId]: result.error
+          }));
+          return;
+        }
+
+        closeQuickAdd(statusId);
+        router.refresh();
+      })();
+    });
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
@@ -81,7 +149,7 @@ export function BoardView({
         </div>
         <p className="text-xs uppercase tracking-[0.16em] text-[#6b6c67]">
           Manage columns in Workflow settings | {projectId.slice(0, 8)}{' '}
-          {isPending || isAssigneePending ? '| syncing' : ''}
+          {isPending || isAssigneePending || isQuickAddPending ? '| syncing' : ''}
         </p>
       </div>
       <div className="overflow-x-auto pb-1">
@@ -114,6 +182,7 @@ export function BoardView({
                 {column.items.map((task) => {
                   const currentAssignee = getAssignee(task);
                   const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
+                  const taskMeta = getTaskCardMeta(task);
 
                   return (
                     <li
@@ -133,6 +202,31 @@ export function BoardView({
                       <p className="mt-2 text-[11px] uppercase tracking-wide text-[#7a7d77]">
                         {task.section?.name ?? 'No section'}
                       </p>
+                      <div className="mt-3 space-y-2 text-xs text-[#5e625e]">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          {taskMeta.dueLabel}
+                        </span>
+                        {taskMeta.relativeDueLabel ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {taskMeta.relativeDueLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        {taskMeta.isOverdue ? (
+                          <span className="rounded-full bg-[#ffede8] px-2 py-1 font-semibold text-[#b63f2e]">
+                            Overdue
+                          </span>
+                        ) : null}
+                        {taskMeta.isWaiting ? (
+                          <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-1 font-semibold text-amber-700">
+                            Waiting
+                          </span>
+                        ) : null}
+                        {taskMeta.priority ? <PriorityBadge priority={taskMeta.priority} /> : null}
+                      </div>
                       <div className="mt-3 flex items-center gap-2 text-xs text-[#5e625e]">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#d8ccb4] bg-[#f8ecd4] text-[11px] font-semibold text-[#5f513d]">
                           {currentAssignee?.initials ?? (hasFormerAssignee ? 'FM' : 'UN')}
@@ -170,6 +264,69 @@ export function BoardView({
                     Drop tasks here
                   </li>
                 ) : null}
+                <li className="rounded-xl border border-dashed border-[#d6cbb3] bg-[#fffcf6] p-3">
+                  {activeQuickAddStatusId === column.id ? (
+                    <div className="space-y-2">
+                      <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6b6f69]">
+                        Card title
+                        <input
+                          aria-label={`Quick add card in ${column.name}`}
+                          autoFocus
+                          value={quickAddDrafts[column.id] ?? ''}
+                          onChange={(event) => {
+                            const nextValue = event.currentTarget.value;
+                            setQuickAddDrafts((current) => ({
+                              ...current,
+                              [column.id]: nextValue
+                            }));
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              saveQuickAdd(column.id);
+                            }
+
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              closeQuickAdd(column.id);
+                            }
+                          }}
+                          placeholder={`Add a card to ${column.name}`}
+                          className="h-10 rounded-lg border border-[#d8ceb6] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#2d332e]"
+                        />
+                      </label>
+                      {quickAddErrors[column.id] ? (
+                        <p className="text-xs font-medium text-[#b63f2e]">{quickAddErrors[column.id]}</p>
+                      ) : null}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveQuickAdd(column.id)}
+                          disabled={isQuickAddPending}
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d8caac] bg-[#f8ecd4] px-3 text-sm font-semibold text-[#544932] hover:bg-[#f2e3c3] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isQuickAddPending ? 'Adding...' : 'Add card'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => closeQuickAdd(column.id)}
+                          disabled={isQuickAddPending}
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d8ceb6] bg-white px-3 text-sm text-[#5d625d] hover:bg-[#f8eedb] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openQuickAdd(column.id)}
+                      className="w-full rounded-lg border border-[#d8ceb6] bg-white px-3 py-2 text-left text-sm font-semibold text-[#544932] hover:bg-[#f8eedb]"
+                    >
+                      Add card
+                    </button>
+                  )}
+                </li>
               </ul>
             </div>
           ))}

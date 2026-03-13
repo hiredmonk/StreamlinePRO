@@ -58,7 +58,6 @@ describe('task actions', () => {
     const { supabase, history } = createSupabaseMock([
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
       { table: 'project_sections', response: { data: { id: ids.section }, error: null } },
-      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       {
         table: 'tasks',
         response: { data: null, error: null }
@@ -91,17 +90,17 @@ describe('task actions', () => {
     expect(result.data.taskId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
-    expect(history[3]?.chain.insert).toHaveBeenCalledWith(
+    expect(history[2]?.chain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: result.data.taskId,
         status_id: ids.statusTodo,
         section_id: ids.section,
         due_at: '2026-03-01T10:30:00.000Z',
-        due_timezone: 'Asia/Kolkata',
-        sort_order: 5
+        due_timezone: 'Asia/Kolkata'
       })
     );
-    expect(history[3]?.chain.select).not.toHaveBeenCalled();
+    expect(history[2]?.chain.insert.mock.calls[0]?.[0]).not.toHaveProperty('sort_order');
+    expect(history[2]?.chain.select).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({
@@ -163,7 +162,6 @@ describe('task actions', () => {
     const { supabase } = createSupabaseMock([
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
       { table: 'project_sections', response: { data: { id: ids.section }, error: null } },
-      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       {
         table: 'tasks',
         response: {
@@ -269,11 +267,14 @@ describe('task actions', () => {
   });
 
   it('moves task and logs activity', async () => {
-    const { supabase, history } = createSupabaseMock([
-      { table: 'tasks', response: { data: { project_id: ids.project }, error: null } },
-      { table: 'tasks', response: { data: null, error: null } },
-      { table: 'task_activity', response: { data: null, error: null } }
-    ]);
+    const { supabase, history, rpc } = createSupabaseMock(
+      [
+        { table: 'tasks', response: { data: { project_id: ids.project }, error: null } },
+        { table: 'tasks', response: { data: null, error: null } },
+        { table: 'task_activity', response: { data: null, error: null } }
+      ],
+      [{ fn: 'allocate_task_sort_order', response: { data: 42, error: null } }]
+    );
 
     vi.mocked(requireUser).mockResolvedValue({
       user: { id: ids.userA } as never,
@@ -282,13 +283,13 @@ describe('task actions', () => {
 
     const result = await moveTaskAction({
       id: ids.task,
-      statusId: ids.statusDone,
-      sortOrder: 3
+      statusId: ids.statusDone
     });
 
-    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+    expect(result).toEqual({ ok: true, data: { taskId: ids.task, sortOrder: 42 } });
+    expect(rpc).toHaveBeenCalledWith('allocate_task_sort_order');
     expect(history[1]?.chain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status_id: ids.statusDone, sort_order: 3 })
+      expect.objectContaining({ status_id: ids.statusDone, sort_order: 42 })
     );
   });
 
@@ -349,7 +350,6 @@ describe('task actions', () => {
         table: 'project_statuses',
         response: { data: { id: ids.statusTodo }, error: null }
       },
-      { table: 'tasks', response: { data: [{ sort_order: 10 }], error: null } },
       {
         table: 'tasks',
         response: { data: { id: ids.nextTask }, error: null }
@@ -380,6 +380,7 @@ describe('task actions', () => {
         event_type: 'recurrence_generated'
       })
     );
+    expect(history[7]?.chain.insert.mock.calls[0]?.[0]).not.toHaveProperty('sort_order');
   });
 
   it('creates a follow-up task and logs it on the source task', async () => {
@@ -398,7 +399,6 @@ describe('task actions', () => {
         }
       },
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
-      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       { table: 'tasks', response: { data: null, error: null } },
       { table: 'task_activity', response: { data: null, error: null } },
       { table: 'projects', response: { data: { workspace_id: ids.workspace }, error: null } },
