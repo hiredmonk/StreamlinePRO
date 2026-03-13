@@ -28,7 +28,8 @@ describe('recurrence actions', () => {
 
   describe('createTaskRecurrenceAction', () => {
     it('creates recurrence for eligible task', async () => {
-      const { supabase, history } = createSupabaseMock([
+      const { supabase, rpc, history } = createSupabaseMock(
+        [
         {
           table: 'tasks',
           response: {
@@ -47,10 +48,10 @@ describe('recurrence actions', () => {
           table: 'projects',
           response: { data: { workspace_id: ids.workspace }, error: null }
         },
-        { table: 'recurrences', response: { data: null, error: null } },
-        { table: 'tasks', response: { data: null, error: null } },
         { table: 'task_activity', response: { data: null, error: null } }
-      ]);
+        ],
+        [{ fn: 'create_task_recurrence_for_task', response: { data: 'rpc-ok', error: null } }]
+      );
 
       vi.mocked(requireUser).mockResolvedValue({
         user: { id: ids.userA } as never,
@@ -68,12 +69,20 @@ describe('recurrence actions', () => {
         expect(result.data.recurrenceId).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
         );
+        expect(rpc).toHaveBeenCalledWith('create_task_recurrence_for_task', {
+          p_task_id: ids.task,
+          p_workspace_id: ids.workspace,
+          p_recurrence_id: expect.any(String),
+          p_frequency: 'weekly',
+          p_interval: 2,
+          p_created_by: ids.userA
+        });
       }
       expect(history[2]?.chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({
-          workspace_id: ids.workspace,
-          mode: 'create_on_complete',
-          is_paused: false
+          task_id: ids.task,
+          actor_id: ids.userA,
+          event_type: 'recurrence_created'
         })
       );
       expect(revalidatePath).toHaveBeenCalledWith('/my-tasks');
@@ -221,7 +230,7 @@ describe('recurrence actions', () => {
             error: null
           }
         },
-        { table: 'recurrences', response: { data: null, error: null } },
+        { table: 'recurrences', response: { data: { id: ids.recurrence }, error: null } },
         { table: 'task_activity', response: { data: null, error: null } }
       ]);
 
@@ -243,6 +252,33 @@ describe('recurrence actions', () => {
           pattern_json: { frequency: 'monthly', interval: 3 }
         })
       );
+    });
+
+    it('rejects update when recurrence row is missing', async () => {
+      const { supabase } = createSupabaseMock([
+        {
+          table: 'tasks',
+          response: {
+            data: { id: ids.task, project_id: ids.project, recurrence_id: ids.recurrence },
+            error: null
+          }
+        },
+        { table: 'recurrences', response: { data: null, error: null } }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await updateTaskRecurrenceAction({
+        taskId: ids.task,
+        recurrenceId: ids.recurrence,
+        frequency: 'weekly',
+        interval: 1
+      });
+
+      expect(result).toEqual({ ok: false, error: 'Recurrence not found.' });
     });
 
     it('rejects ownership mismatch', async () => {
@@ -283,7 +319,7 @@ describe('recurrence actions', () => {
             error: null
           }
         },
-        { table: 'recurrences', response: { data: null, error: null } },
+        { table: 'recurrences', response: { data: { id: ids.recurrence }, error: null } },
         { table: 'task_activity', response: { data: null, error: null } }
       ]);
 
@@ -300,6 +336,31 @@ describe('recurrence actions', () => {
       expect(result).toEqual({ ok: true, data: { recurrenceId: ids.recurrence } });
       expect(history[1]?.chain.update).toHaveBeenCalledWith({ is_paused: true });
     });
+
+    it('rejects pause when recurrence row is missing', async () => {
+      const { supabase } = createSupabaseMock([
+        {
+          table: 'tasks',
+          response: {
+            data: { id: ids.task, project_id: ids.project, recurrence_id: ids.recurrence },
+            error: null
+          }
+        },
+        { table: 'recurrences', response: { data: null, error: null } }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await pauseTaskRecurrenceAction({
+        taskId: ids.task,
+        recurrenceId: ids.recurrence
+      });
+
+      expect(result).toEqual({ ok: false, error: 'Recurrence not found.' });
+    });
   });
 
   describe('resumeTaskRecurrenceAction', () => {
@@ -312,7 +373,7 @@ describe('recurrence actions', () => {
             error: null
           }
         },
-        { table: 'recurrences', response: { data: null, error: null } },
+        { table: 'recurrences', response: { data: { id: ids.recurrence }, error: null } },
         { table: 'task_activity', response: { data: null, error: null } }
       ]);
 
@@ -329,11 +390,9 @@ describe('recurrence actions', () => {
       expect(result).toEqual({ ok: true, data: { recurrenceId: ids.recurrence } });
       expect(history[1]?.chain.update).toHaveBeenCalledWith({ is_paused: false });
     });
-  });
 
-  describe('clearTaskRecurrenceAction', () => {
-    it('unlinks recurrence and pauses it', async () => {
-      const { supabase, history } = createSupabaseMock([
+    it('rejects resume when recurrence row is missing', async () => {
+      const { supabase } = createSupabaseMock([
         {
           table: 'tasks',
           response: {
@@ -341,10 +400,38 @@ describe('recurrence actions', () => {
             error: null
           }
         },
-        { table: 'tasks', response: { data: null, error: null } },
-        { table: 'recurrences', response: { data: null, error: null } },
-        { table: 'task_activity', response: { data: null, error: null } }
+        { table: 'recurrences', response: { data: null, error: null } }
       ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await resumeTaskRecurrenceAction({
+        taskId: ids.task,
+        recurrenceId: ids.recurrence
+      });
+
+      expect(result).toEqual({ ok: false, error: 'Recurrence not found.' });
+    });
+  });
+
+  describe('clearTaskRecurrenceAction', () => {
+    it('unlinks recurrence and pauses it', async () => {
+      const { supabase, rpc, history } = createSupabaseMock(
+        [
+        {
+          table: 'tasks',
+          response: {
+            data: { id: ids.task, project_id: ids.project, recurrence_id: ids.recurrence },
+            error: null
+          }
+        },
+        { table: 'task_activity', response: { data: null, error: null } }
+        ],
+        [{ fn: 'clear_task_recurrence_for_task', response: { data: ids.recurrence, error: null } }]
+      );
 
       vi.mocked(requireUser).mockResolvedValue({
         user: { id: ids.userA } as never,
@@ -357,10 +444,17 @@ describe('recurrence actions', () => {
       });
 
       expect(result).toEqual({ ok: true, data: { recurrenceId: ids.recurrence } });
-      expect(history[1]?.chain.update).toHaveBeenCalledWith(
-        expect.objectContaining({ recurrence_id: null })
+      expect(rpc).toHaveBeenCalledWith('clear_task_recurrence_for_task', {
+        p_task_id: ids.task,
+        p_recurrence_id: ids.recurrence
+      });
+      expect(history[1]?.chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          task_id: ids.task,
+          actor_id: ids.userA,
+          event_type: 'recurrence_cleared'
+        })
       );
-      expect(history[2]?.chain.update).toHaveBeenCalledWith({ is_paused: true });
     });
 
     it('rejects ownership mismatch', async () => {

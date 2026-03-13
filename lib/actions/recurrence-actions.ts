@@ -60,27 +60,24 @@ export async function createTaskRecurrenceAction(input: {
     }
 
     const recurrenceId = randomUUID();
+    const { data: linkedRecurrenceId, error: createError } = await supabase.rpc(
+      'create_task_recurrence_for_task',
+      {
+        p_task_id: parsed.taskId,
+        p_workspace_id: project.workspace_id,
+        p_recurrence_id: recurrenceId,
+        p_frequency: parsed.frequency,
+        p_interval: parsed.interval,
+        p_created_by: user.id
+      }
+    );
 
-    const { error: insertError } = await supabase.from('recurrences').insert({
-      id: recurrenceId,
-      workspace_id: project.workspace_id,
-      pattern_json: { frequency: parsed.frequency, interval: parsed.interval } as unknown as Json,
-      mode: 'create_on_complete',
-      is_paused: false,
-      created_by: user.id
-    });
-
-    if (insertError) {
-      throw insertError;
+    if (createError) {
+      throw createError;
     }
 
-    const { error: updateError } = await supabase
-      .from('tasks')
-      .update({ recurrence_id: recurrenceId, updated_at: new Date().toISOString() })
-      .eq('id', parsed.taskId);
-
-    if (updateError) {
-      throw updateError;
+    if (typeof linkedRecurrenceId !== 'string' || !linkedRecurrenceId) {
+      throw new Error('Task recurrence link failed.');
     }
 
     await logActivity(supabase, {
@@ -122,15 +119,21 @@ export async function updateTaskRecurrenceAction(input: {
       throw new Error('Recurrence does not belong to this task.');
     }
 
-    const { error: updateError } = await supabase
+    const { data: updatedRecurrence, error: updateError } = await supabase
       .from('recurrences')
       .update({
         pattern_json: { frequency: parsed.frequency, interval: parsed.interval } as unknown as Json
       })
-      .eq('id', parsed.recurrenceId);
+      .eq('id', parsed.recurrenceId)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (!updatedRecurrence) {
+      throw new Error('Recurrence not found.');
     }
 
     await logActivity(supabase, {
@@ -170,13 +173,19 @@ export async function pauseTaskRecurrenceAction(input: {
       throw new Error('Recurrence does not belong to this task.');
     }
 
-    const { error: updateError } = await supabase
+    const { data: pausedRecurrence, error: updateError } = await supabase
       .from('recurrences')
       .update({ is_paused: true })
-      .eq('id', parsed.recurrenceId);
+      .eq('id', parsed.recurrenceId)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (!pausedRecurrence) {
+      throw new Error('Recurrence not found.');
     }
 
     await logActivity(supabase, {
@@ -216,13 +225,19 @@ export async function resumeTaskRecurrenceAction(input: {
       throw new Error('Recurrence does not belong to this task.');
     }
 
-    const { error: updateError } = await supabase
+    const { data: resumedRecurrence, error: updateError } = await supabase
       .from('recurrences')
       .update({ is_paused: false })
-      .eq('id', parsed.recurrenceId);
+      .eq('id', parsed.recurrenceId)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (!resumedRecurrence) {
+      throw new Error('Recurrence not found.');
     }
 
     await logActivity(supabase, {
@@ -262,22 +277,20 @@ export async function clearTaskRecurrenceAction(input: {
       throw new Error('Recurrence does not belong to this task.');
     }
 
-    const { error: unlinkError } = await supabase
-      .from('tasks')
-      .update({ recurrence_id: null, updated_at: new Date().toISOString() })
-      .eq('id', parsed.taskId);
+    const { data: clearedRecurrenceId, error: clearError } = await supabase.rpc(
+      'clear_task_recurrence_for_task',
+      {
+        p_task_id: parsed.taskId,
+        p_recurrence_id: parsed.recurrenceId
+      }
+    );
 
-    if (unlinkError) {
-      throw unlinkError;
+    if (clearError) {
+      throw clearError;
     }
 
-    const { error: pauseError } = await supabase
-      .from('recurrences')
-      .update({ is_paused: true })
-      .eq('id', parsed.recurrenceId);
-
-    if (pauseError) {
-      throw pauseError;
+    if (clearedRecurrenceId !== parsed.recurrenceId) {
+      throw new Error('Recurrence clear failed.');
     }
 
     await logActivity(supabase, {

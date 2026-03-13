@@ -379,6 +379,24 @@ export type Database = {
         Args: Record<string, never>;
         Returns: number;
       };
+      clear_task_recurrence_for_task: {
+        Args: {
+          p_recurrence_id: string;
+          p_task_id: string;
+        };
+        Returns: string;
+      };
+      create_task_recurrence_for_task: {
+        Args: {
+          p_created_by: string;
+          p_frequency: string;
+          p_interval: number;
+          p_recurrence_id: string;
+          p_task_id: string;
+          p_workspace_id: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {};
     CompositeTypes: {};
