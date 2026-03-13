@@ -224,8 +224,7 @@ export async function moveTaskFromForm(formData: FormData) {
   const result = await moveTaskAction({
     id: String(formData.get('id') ?? ''),
     statusId: String(formData.get('statusId') ?? ''),
-    sectionId: String(formData.get('sectionId') ?? '') || null,
-    sortOrder: Number(formData.get('sortOrder') ?? 1)
+    sectionId: String(formData.get('sectionId') ?? '') || null
   });
 
   if (!result.ok) {

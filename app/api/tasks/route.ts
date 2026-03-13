@@ -36,17 +36,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Assignee is not allowed for this project.' }, { status: 400 });
   }
 
-  const { data: orderRows, error: orderError } = await supabase
-    .from('tasks')
-    .select('sort_order')
-    .eq('project_id', parsed.data.projectId)
-    .order('sort_order', { ascending: false })
-    .limit(1);
-
-  if (orderError) {
-    return NextResponse.json({ error: orderError.message }, { status: 500 });
-  }
-
   const { data, error } = await supabase
     .from('tasks')
     .insert({
@@ -62,8 +51,7 @@ export async function POST(request: NextRequest) {
       priority: parsed.data.priority ?? null,
       parent_task_id: parsed.data.parentTaskId ?? null,
       recurrence_id: parsed.data.recurrenceId ?? null,
-      is_today: parsed.data.isToday ?? false,
-      sort_order: (orderRows?.[0]?.sort_order ?? 0) + 1
+      is_today: parsed.data.isToday ?? false
     })
     .select('id')
     .single();

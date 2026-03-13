@@ -10,6 +10,11 @@ export type QueryPlanEntry = {
   response: QueryResponse;
 };
 
+export type RpcPlanEntry = {
+  fn: string;
+  response: QueryResponse;
+};
+
 type Chain = {
   select: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
@@ -58,14 +63,21 @@ export function createQueryChain(response?: QueryResponse): Chain {
   return chain;
 }
 
-export function createSupabaseMock(plan: QueryPlanEntry[]) {
+export function createSupabaseMock(plan: QueryPlanEntry[], rpcPlan: RpcPlanEntry[] = []) {
   const queues = new Map<string, QueryResponse[]>();
+  const rpcQueues = new Map<string, QueryResponse[]>();
   const history: Array<{ table: string; chain: Chain }> = [];
 
   plan.forEach((entry) => {
     const existing = queues.get(entry.table) ?? [];
     existing.push(normalizeResponse(entry.response));
     queues.set(entry.table, existing);
+  });
+
+  rpcPlan.forEach((entry) => {
+    const existing = rpcQueues.get(entry.fn) ?? [];
+    existing.push(normalizeResponse(entry.response));
+    rpcQueues.set(entry.fn, existing);
   });
 
   const from = vi.fn((table: string) => {
@@ -86,9 +98,22 @@ export function createSupabaseMock(plan: QueryPlanEntry[]) {
 
   const storageChain = createQueryChain();
   const storageFrom = vi.fn(() => storageChain);
+  const rpc = vi.fn(async (fn: string) => {
+    const queue = rpcQueues.get(fn) ?? [];
+
+    if (!queue.length) {
+      throw new Error(`No mock response queued for RPC "${fn}".`);
+    }
+
+    const response = queue.shift();
+    rpcQueues.set(fn, queue);
+
+    return normalizeResponse(response);
+  });
 
   const supabase = {
     from,
+    rpc,
     auth: {
       getUser: vi.fn(async () => ({ data: { user: null } })),
       signOut: vi.fn(async () => ({ error: null })),
@@ -103,6 +128,7 @@ export function createSupabaseMock(plan: QueryPlanEntry[]) {
   return {
     supabase,
     from,
+    rpc,
     history,
     storageFrom,
     storageChain

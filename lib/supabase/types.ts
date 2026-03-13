@@ -374,7 +374,12 @@ export type Database = {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      allocate_task_sort_order: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   };

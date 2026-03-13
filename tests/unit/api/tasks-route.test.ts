@@ -41,14 +41,7 @@ describe('/api/tasks route', () => {
   });
 
   it('creates task for authenticated user', async () => {
-    const { supabase } = createSupabaseMock([
-      {
-        table: 'tasks',
-        response: {
-          data: [{ sort_order: 2 }],
-          error: null
-        }
-      },
+    const { supabase, history } = createSupabaseMock([
       {
         table: 'tasks',
         response: { data: { id: ids.task }, error: null }
@@ -71,6 +64,7 @@ describe('/api/tasks route', () => {
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({ taskId: ids.task });
+    expect(history[0]?.chain.insert.mock.calls[0]?.[0]).not.toHaveProperty('sort_order');
   });
 
   it('rejects invalid assignees on update', async () => {

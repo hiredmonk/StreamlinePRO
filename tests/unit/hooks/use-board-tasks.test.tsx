@@ -1,5 +1,4 @@
-import React from 'react';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useBoardTasks } from '@/lib/hooks/use-board-tasks';
 
@@ -32,39 +31,50 @@ const tasks = [
   }
 ];
 
+const twoLaneTasks = [
+  tasks[0],
+  {
+    ...tasks[0],
+    id: 'done-1',
+    title: 'Done task',
+    status_id: 'done',
+    sort_order: 17,
+    status: { ...tasks[0].status, id: 'done', name: 'Done', color: '#22aa44' }
+  }
+];
+
 describe('useBoardTasks', () => {
-  it('optimistically moves a task and calls the mutation', async () => {
-    const moveTask = vi.fn(async () => ({ ok: true }));
-    const { result } = renderHook(() => useBoardTasks({ tasks, statuses, moveTask }));
+  it('optimistically appends a task and reconciles to the canonical rank', async () => {
+    const moveTask = vi.fn(async () => ({ ok: true as const, data: { sortOrder: 42 } }));
+    const { result, unmount } = renderHook(() => useBoardTasks({ tasks, statuses, moveTask }));
 
     await act(async () => {
       await result.current.moveTask('t1', 'done');
     });
 
-    expect(moveTask).toHaveBeenCalledWith({
-      id: 't1',
-      statusId: 'done',
-      sortOrder: 1
-    });
+    expect(moveTask).toHaveBeenCalledWith({ id: 't1', statusId: 'done' });
     expect(result.current.columns[1].items[0]?.status_id).toBe('done');
+    expect(result.current.columns[1].items[0]?.sort_order).toBe(42);
+
+    unmount();
   });
 
   it('rolls back the optimistic move when the mutation fails', async () => {
-    const moveTask = vi.fn(async () => ({ ok: false }));
-    const { result } = renderHook(() => useBoardTasks({ tasks, statuses, moveTask }));
+    const moveTask = vi.fn(async () => ({ ok: false as const }));
+    const { result, unmount } = renderHook(() => useBoardTasks({ tasks, statuses, moveTask }));
 
     await act(async () => {
       await result.current.moveTask('t1', 'done');
     });
 
-    await waitFor(() => {
-      expect(result.current.columns[0].items[0]?.status_id).toBe('todo');
-    });
+    expect(result.current.columns[0].items[0]?.status_id).toBe('todo');
+
+    unmount();
   });
 
-  it('resyncs local items when tasks prop changes', async () => {
-    const moveTask = vi.fn(async () => ({ ok: true }));
-    const { result, rerender } = renderHook(
+  it('resyncs local items when tasks prop changes', () => {
+    const moveTask = vi.fn(async () => ({ ok: true as const, data: { sortOrder: 99 } }));
+    const { result, rerender, unmount } = renderHook(
       ({ currentTasks }) => useBoardTasks({ tasks: currentTasks, statuses, moveTask }),
       { initialProps: { currentTasks: tasks } }
     );
@@ -81,8 +91,28 @@ describe('useBoardTasks', () => {
       ]
     });
 
-    await waitFor(() => {
-      expect(result.current.columns[1].items[0]?.id).toBe('t2');
+    expect(result.current.columns[1].items[0]?.id).toBe('t2');
+
+    unmount();
+  });
+
+  it('uses the lane max rank for optimistic append placement before reconciliation', async () => {
+    const moveTask = vi.fn(async () => ({ ok: true as const, data: { sortOrder: 50 } }));
+    const { result, unmount } = renderHook(() =>
+      useBoardTasks({
+        tasks: twoLaneTasks,
+        statuses,
+        moveTask
+      })
+    );
+
+    await act(async () => {
+      await result.current.moveTask('t1', 'done');
     });
+
+    expect(result.current.columns[1].items.map((task) => task.id)).toEqual(['done-1', 't1']);
+    expect(result.current.columns[1].items[1]?.sort_order).toBe(50);
+
+    unmount();
   });
 });

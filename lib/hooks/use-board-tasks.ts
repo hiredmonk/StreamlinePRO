@@ -12,8 +12,7 @@ type BoardStatus = {
 type MoveTaskMutation = (input: {
   id: string;
   statusId: string;
-  sortOrder: number;
-}) => Promise<{ ok: boolean }>;
+}) => Promise<{ ok: boolean; data?: { sortOrder: number } }>;
 
 export type UseBoardTasksResult = {
   columns: Array<BoardStatus & { items: TaskWithRelations[] }>;
@@ -51,7 +50,10 @@ export function useBoardTasks({
   function moveTaskItem(taskId: string, statusId: string) {
     return new Promise<void>((resolve) => {
       const previous = items;
-      const nextSortOrder = previous.filter((task) => task.status_id === statusId).length + 1;
+      const nextSortOrder =
+        previous
+          .filter((task) => task.status_id === statusId)
+          .reduce((max, task) => Math.max(max, task.sort_order), 0) + 1;
       const nextStatus = statuses.find((status) => status.id === statusId);
 
       setItems((current) =>
@@ -76,12 +78,22 @@ export function useBoardTasks({
         void (async () => {
           const result = await moveTask({
             id: taskId,
-            statusId,
-            sortOrder: nextSortOrder
+            statusId
           });
 
           if (!result.ok) {
             setItems(previous);
+          } else if (result.data?.sortOrder !== undefined) {
+            setItems((current) =>
+              current.map((task) =>
+                task.id === taskId
+                  ? {
+                      ...task,
+                      sort_order: result.data?.sortOrder ?? task.sort_order
+                    }
+                  : task
+              )
+            );
           }
 
           resolve();

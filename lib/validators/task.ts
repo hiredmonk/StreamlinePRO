@@ -54,8 +54,7 @@ export const createFollowUpTaskSchema = z.object({
 export const moveTaskSchema = z.object({
   id: z.uuid(),
   statusId: z.uuid(),
-  sectionId: z.uuid().nullable().optional(),
-  sortOrder: z.number().min(0)
+  sectionId: z.uuid().nullable().optional()
 });
 
 export const createCommentSchema = z.object({
