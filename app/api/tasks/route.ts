@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createTaskSchema, updateTaskSchema } from '@/lib/validators/task';
 
@@ -19,15 +20,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: orderRows, error: orderError } = await supabase
-    .from('tasks')
-    .select('sort_order')
-    .eq('project_id', parsed.data.projectId)
-    .order('sort_order', { ascending: false })
-    .limit(1);
+  const assignmentScope = await getProjectAssignmentScope(supabase as never, parsed.data.projectId);
+  if (!assignmentScope) {
+    return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
+  }
 
-  if (orderError) {
-    return NextResponse.json({ error: orderError.message }, { status: 500 });
+  const assigneeId =
+    parsed.data.assigneeId === undefined
+      ? isAssigneeAllowed(assignmentScope, user.id)
+        ? user.id
+        : null
+      : parsed.data.assigneeId;
+
+  if (!isAssigneeAllowed(assignmentScope, assigneeId)) {
+    return NextResponse.json({ error: 'Assignee is not allowed for this project.' }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -38,15 +44,14 @@ export async function POST(request: NextRequest) {
       status_id: parsed.data.statusId,
       title: parsed.data.title,
       description: parsed.data.description ?? null,
-      assignee_id: parsed.data.assigneeId ?? user.id,
+      assignee_id: assigneeId,
       creator_id: user.id,
       due_at: parsed.data.dueAt ?? null,
       due_timezone: parsed.data.dueTimezone ?? null,
       priority: parsed.data.priority ?? null,
       parent_task_id: parsed.data.parentTaskId ?? null,
       recurrence_id: parsed.data.recurrenceId ?? null,
-      is_today: parsed.data.isToday ?? false,
-      sort_order: (orderRows?.[0]?.sort_order ?? 0) + 1
+      is_today: parsed.data.isToday ?? false
     })
     .select('id')
     .single();
@@ -76,6 +81,24 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { id, ...rest } = parsed.data;
+  const { data: existingTask, error: existingTaskError } = await supabase
+    .from('tasks')
+    .select('project_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (existingTaskError || !existingTask) {
+    return NextResponse.json({ error: existingTaskError?.message ?? 'Task not found.' }, { status: 404 });
+  }
+
+  const assignmentScope = await getProjectAssignmentScope(supabase as never, existingTask.project_id);
+  if (!assignmentScope) {
+    return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
+  }
+
+  if (rest.assigneeId !== undefined && !isAssigneeAllowed(assignmentScope, rest.assigneeId)) {
+    return NextResponse.json({ error: 'Assignee is not allowed for this project.' }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from('tasks')

@@ -1,16 +1,41 @@
+'use client';
+
 import { createProjectFromForm } from '@/lib/actions/form-actions';
 import { Button } from '@/app/components/ui/button';
+import type { ProjectTemplateSummary } from '@/lib/contracts/project-templates';
 
 export function CreateProjectForm({
   workspaceId,
-  className
+  templates,
+  className,
+  id
 }: {
   workspaceId: string;
+  templates?: ProjectTemplateSummary[];
   className?: string;
+  id?: string;
 }) {
   return (
-    <form action={createProjectFromForm} className={className ?? 'glass-panel grid gap-3 p-4 md:grid-cols-4'}>
+    <form
+      id={id}
+      action={createProjectFromForm}
+      className={className ?? 'glass-panel grid gap-3 p-4 md:grid-cols-4'}
+    >
       <input type="hidden" name="workspaceId" value={workspaceId} />
+      {templates && templates.length > 0 ? (
+        <select
+          name="templateId"
+          defaultValue=""
+          className="h-10 rounded-xl border border-[#d9cfb6] bg-[#fffdf8] px-3 text-sm"
+        >
+          <option value="">Blank project</option>
+          {templates.map((template) => (
+            <option key={template.id} value={template.id}>
+              {template.name} ({template.taskCount} tasks)
+            </option>
+          ))}
+        </select>
+      ) : null}
       <input
         required
         name="name"

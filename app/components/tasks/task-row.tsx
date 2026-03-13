@@ -1,19 +1,36 @@
-import { formatDistanceToNowStrict } from 'date-fns';
 import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from 'lucide-react';
 import { completeTaskFromForm, updateTaskFromForm } from '@/lib/actions/form-actions';
-import { formatDueDate, toDateTimeLocalValue } from '@/lib/domain/tasks/format';
+import { toDateTimeLocalValue } from '@/lib/domain/tasks/format';
 import { PriorityBadge, StatusBadge } from '@/app/components/ui/badge';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
+import { getTaskRowMeta } from '@/lib/view-models/task-row';
 
 type TaskRowProps = {
   task: TaskWithRelations;
   statuses: Array<{ id: string; name: string }>;
   sections?: Array<{ id: string; name: string }>;
+  assignees?: Array<{
+    userId: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+    initials: string;
+  }>;
   drawerHref: string;
+  completionReturnTo?: string;
 };
 
-export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowProps) {
-  const isOverdue = Boolean(task.due_at && !task.completed_at && new Date(task.due_at) < new Date());
+export function TaskRow({
+  task,
+  statuses,
+  sections = [],
+  assignees = [],
+  drawerHref,
+  completionReturnTo
+}: TaskRowProps) {
+  const { dueLabel, isOverdue, relativeDueLabel, sectionLabel } = getTaskRowMeta(task);
+  const currentAssignee = assignees.find((assignee) => assignee.userId === task.assignee_id) ?? null;
+  const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
 
   return (
     <article className="rounded-2xl border border-[#ddd3bf] bg-[#fffdf8] p-4">
@@ -24,7 +41,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
           </a>
           <p className="mt-1 text-xs text-[#6b6f6a]">
             {task.project.name}
-            {task.section ? ` · ${task.section.name}` : ''}
+            {sectionLabel ? ` · ${sectionLabel}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -36,12 +53,18 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-[#5d625d]">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
-          {formatDueDate(task.due_at)}
+          {dueLabel}
         </span>
-        {task.due_at ? (
+        <span className="inline-flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d8ccb4] bg-[#f8ecd4] text-[11px] font-semibold text-[#5f513d]">
+            {currentAssignee?.initials ?? (hasFormerAssignee ? 'FM' : 'UN')}
+          </span>
+          {currentAssignee?.displayName ?? (hasFormerAssignee ? 'Former member' : 'Unassigned')}
+        </span>
+        {relativeDueLabel ? (
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
-            {formatDistanceToNowStrict(new Date(task.due_at), { addSuffix: true })}
+            {relativeDueLabel}
           </span>
         ) : null}
         {isOverdue ? (
@@ -52,6 +75,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
       <div className="grid gap-2 md:grid-cols-[auto_1fr]">
         <form action={completeTaskFromForm}>
           <input type="hidden" name="id" value={task.id} />
+          {completionReturnTo ? <input type="hidden" name="returnTo" value={completionReturnTo} /> : null}
           <button
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#b8ccb4] bg-[#ebf7ec] px-3 text-sm font-semibold text-[#1f6a39] transition hover:bg-[#dff2e2]"
             type="submit"
@@ -61,7 +85,7 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
           </button>
         </form>
 
-        <form action={updateTaskFromForm} className="grid gap-2 sm:grid-cols-4">
+        <form action={updateTaskFromForm} className="grid gap-2 sm:grid-cols-5">
           <input type="hidden" name="id" value={task.id} />
           <input type="hidden" name="title" value={task.title} />
           <input type="hidden" name="description" value={task.description ?? ''} />
@@ -89,6 +113,23 @@ export function TaskRow({ task, statuses, sections = [], drawerHref }: TaskRowPr
               </option>
             ))}
           </select>
+
+          <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6b6f69]">
+            Owner
+            <select
+              name="assigneeId"
+              defaultValue={task.assignee_id ?? ''}
+              className="h-10 rounded-xl border border-[#d8ceb6] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#2d332e]"
+            >
+              <option value="">Unassigned</option>
+              {hasFormerAssignee ? <option value={task.assignee_id ?? ''}>Former member</option> : null}
+              {assignees.map((assignee) => (
+                <option key={assignee.userId} value={assignee.userId}>
+                  {assignee.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <input
             type="datetime-local"

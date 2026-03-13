@@ -23,14 +23,21 @@ function resolveAppOrigin(configuredAppUrl: string, requestOrigin: string) {
 
 export async function GET(request: NextRequest) {
   const env = getClientEnv();
-  const { origin } = new URL(request.url);
+  const { origin, searchParams } = new URL(request.url);
   const appOrigin = resolveAppOrigin(env.NEXT_PUBLIC_APP_URL, origin);
   const supabase = await createServerSupabaseClient();
+  const next = sanitizeNextPath(searchParams.get('next'));
+  const workspaceInvite = searchParams.get('workspaceInvite');
+  const callbackParams = new URLSearchParams();
+  callbackParams.set('next', next);
+  if (workspaceInvite) {
+    callbackParams.set('workspaceInvite', workspaceInvite);
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${appOrigin}/auth/callback`
+      redirectTo: `${appOrigin}/auth/callback?${callbackParams.toString()}`
     }
   });
 
@@ -39,4 +46,12 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(data.url);
+}
+
+function sanitizeNextPath(next: string | null) {
+  if (!next || !next.startsWith('/')) {
+    return '/my-tasks';
+  }
+
+  return next;
 }

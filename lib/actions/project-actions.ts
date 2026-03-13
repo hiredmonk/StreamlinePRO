@@ -6,15 +6,22 @@ import { requireUser } from '@/lib/auth';
 import {
   createProjectSchema,
   createProjectStatusSchema,
-  createWorkspaceSchema,
   deleteProjectStatusSchema,
   reorderProjectStatusesSchema,
+  saveProjectTemplateSchema,
   updateProjectStatusSchema
 } from '@/lib/validators/project';
+import { createWorkspaceSchema } from '@/lib/validators/workspace';
+import { getProjectTemplateById } from '@/lib/domain/projects/template-queries';
 import { DEFAULT_PROJECT_SECTIONS, DEFAULT_PROJECT_STATUSES } from '@/lib/constants/status-colors';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
+import type {
+  ProjectTemplateSnapshot,
+  ProjectTemplateTaskSnapshot,
+  ProjectTemplateSummary
+} from '@/lib/contracts/project-templates';
 
 type ProjectStatusRow = {
   id: string;
@@ -23,6 +30,36 @@ type ProjectStatusRow = {
   color: string;
   is_done: boolean;
   sort_order: number;
+};
+
+type SourceStatusRow = {
+  id: string;
+  name: string;
+  color: string;
+  is_done: boolean;
+  sort_order: number;
+};
+
+type SourceSectionRow = {
+  id: string;
+  name: string;
+  sort_order: number;
+};
+
+type SourceTaskRow = {
+  title: string;
+  description: string | null;
+  priority: string | null;
+  status_id: string | null;
+  section_id: string | null;
+  sort_order: number;
+};
+
+type SourceProjectRow = {
+  id: string;
+  workspace_id: string;
+  privacy: string;
+  created_by: string;
 };
 
 export async function createWorkspaceAction(input: {
@@ -70,6 +107,7 @@ export async function createProjectAction(input: {
   name: string;
   description?: string;
   privacy?: 'workspace_visible' | 'private';
+  templateId?: string | null;
 }): Promise<ActionResult<{ projectId: string }>> {
   try {
     const parsed = createProjectSchema.parse(input);
@@ -102,30 +140,34 @@ export async function createProjectAction(input: {
         throw memberError;
       }
 
-      const { error: statusesError } = await supabase.from('project_statuses').insert(
-        DEFAULT_PROJECT_STATUSES.map((status, index) => ({
-          project_id: projectId,
-          name: status.name,
-          color: status.color,
-          sort_order: index,
-          is_done: status.is_done
-        }))
-      );
+      if (parsed.templateId) {
+        await initializeProjectFromTemplate(supabase, projectId, parsed.templateId, user.id);
+      } else {
+        const { error: statusesError } = await supabase.from('project_statuses').insert(
+          DEFAULT_PROJECT_STATUSES.map((status, index) => ({
+            project_id: projectId,
+            name: status.name,
+            color: status.color,
+            sort_order: index,
+            is_done: status.is_done
+          }))
+        );
 
-      if (statusesError) {
-        throw statusesError;
-      }
+        if (statusesError) {
+          throw statusesError;
+        }
 
-      const { error: sectionsError } = await supabase.from('project_sections').insert(
-        DEFAULT_PROJECT_SECTIONS.map((name, index) => ({
-          project_id: projectId,
-          name,
-          sort_order: index
-        }))
-      );
+        const { error: sectionsError } = await supabase.from('project_sections').insert(
+          DEFAULT_PROJECT_SECTIONS.map((name, index) => ({
+            project_id: projectId,
+            name,
+            sort_order: index
+          }))
+        );
 
-      if (sectionsError) {
-        throw sectionsError;
+        if (sectionsError) {
+          throw sectionsError;
+        }
       }
     } catch (initializationError) {
       // Keep project creation all-or-nothing when defaults fail to initialize.
@@ -136,6 +178,208 @@ export async function createProjectAction(input: {
     revalidateProjectPaths(projectId);
 
     return { ok: true, data: { projectId } };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+async function initializeProjectFromTemplate(
+  supabase: AppSupabaseClient,
+  projectId: string,
+  templateId: string,
+  userId: string
+) {
+  const template = await getProjectTemplateById(supabase, templateId);
+  if (!template) {
+    throw new Error('Template not found.');
+  }
+
+  const snapshot = template.snapshot_json;
+  if (!snapshot.statuses?.length) {
+    throw new Error('Template has no statuses configured.');
+  }
+
+  const statusRows = snapshot.statuses.map((status) => ({
+    id: randomUUID(),
+    project_id: projectId,
+    name: status.name,
+    color: status.color,
+    sort_order: status.sortOrder,
+    is_done: status.isDone
+  }));
+
+  const statusIdByName = new Map<string, string>();
+  for (const statusRow of statusRows) {
+    statusIdByName.set(normalizeName(statusRow.name), statusRow.id);
+  }
+
+  const { error: statusInsertError } = await supabase
+    .from('project_statuses')
+    .insert(statusRows);
+
+  if (statusInsertError) {
+    throw statusInsertError;
+  }
+
+  const sectionRows = snapshot.sections.map((section) => ({
+    id: randomUUID(),
+    project_id: projectId,
+    name: section.name,
+    sort_order: section.sortOrder
+  }));
+
+  const sectionIdByName = new Map<string, string>();
+  for (const sectionRow of sectionRows) {
+    sectionIdByName.set(normalizeName(sectionRow.name), sectionRow.id);
+  }
+
+  if (sectionRows.length) {
+    const { error: sectionInsertError } = await supabase
+      .from('project_sections')
+      .insert(sectionRows);
+
+    if (sectionInsertError) {
+      throw sectionInsertError;
+    }
+  }
+
+  if (template.include_tasks && snapshot.tasks.length) {
+    const fallbackStatusId = statusRows[0].id;
+
+    const taskRows = snapshot.tasks.map((task, index) => {
+      const normalizedStatusName = task.statusName
+        ? normalizeName(task.statusName)
+        : '';
+      const normalizedSectionName = task.sectionName
+        ? normalizeName(task.sectionName)
+        : '';
+
+      const mappedStatusId =
+        statusIdByName.get(normalizedStatusName) ?? fallbackStatusId;
+      const mappedSectionId = normalizedSectionName
+        ? sectionIdByName.get(normalizedSectionName) ?? null
+        : null;
+
+      return {
+        id: randomUUID(),
+        project_id: projectId,
+        section_id: mappedSectionId,
+        status_id: mappedStatusId,
+        title: task.title,
+        description: task.description ?? null,
+        assignee_id: null,
+        creator_id: userId,
+        due_at: null,
+        due_timezone: null,
+        priority: task.priority,
+        parent_task_id: null,
+        recurrence_id: null,
+        is_today: false,
+        sort_order: index + 1,
+        completed_at: null
+      };
+    });
+
+    const { error: taskInsertError } = await supabase.from('tasks').insert(taskRows);
+    if (taskInsertError) {
+      throw taskInsertError;
+    }
+  }
+}
+
+export async function saveProjectTemplateAction(input: {
+  projectId: string;
+  name: string;
+  description?: string;
+  includeTasks: boolean;
+}): Promise<ActionResult<{ template: ProjectTemplateSummary }>> {
+  try {
+    const parsed = saveProjectTemplateSchema.parse(input);
+    const { user, supabase } = await requireUser();
+
+    const sourceProject = await getSourceProject(supabase, parsed.projectId);
+
+    if (sourceProject.privacy !== 'workspace_visible') {
+      throw new Error('Only workspace-visible projects can be saved as templates.');
+    }
+
+    const canEdit = await canEditProject(supabase, sourceProject, user.id);
+    if (!canEdit) {
+      throw new Error('Only project editors can save templates from this project.');
+    }
+
+    await ensureTemplateNameIsAvailable(
+      supabase,
+      sourceProject.workspace_id,
+      parsed.name
+    );
+
+    const [statuses, sections] = await Promise.all([
+      getProjectStatusesSnapshot(supabase, sourceProject.id),
+      getProjectSectionsSnapshot(supabase, sourceProject.id)
+    ]);
+
+    if (!statuses.length) {
+      throw new Error('Source project must have at least one status.');
+    }
+
+    let tasks: ProjectTemplateTaskSnapshot[] = [];
+    if (parsed.includeTasks) {
+      tasks = await getProjectTasksSnapshot(supabase, sourceProject.id, statuses, sections);
+    }
+
+    const snapshot: ProjectTemplateSnapshot = {
+      statuses: statuses.map((status) => ({
+        name: status.name,
+        color: status.color,
+        isDone: status.is_done,
+        sortOrder: status.sort_order
+      })),
+      sections: sections.map((section) => ({
+        name: section.name,
+        sortOrder: section.sort_order
+      })),
+      tasks
+    };
+
+    const templateId = randomUUID();
+
+    const { error: templateInsertError } = await supabase
+      .from('project_templates')
+      .insert({
+        id: templateId,
+        workspace_id: sourceProject.workspace_id,
+        source_project_id: sourceProject.id,
+        name: parsed.name.trim(),
+        description: parsed.description?.trim() || null,
+        include_tasks: parsed.includeTasks,
+        snapshot_json: snapshot,
+        created_by: user.id
+      });
+
+    if (templateInsertError) {
+      if (isUniqueViolation(templateInsertError)) {
+        throw new Error('Template name already exists in this workspace.');
+      }
+      throw templateInsertError;
+    }
+
+    revalidatePath('/projects');
+    revalidatePath('/my-tasks');
+
+    const template: ProjectTemplateSummary = {
+      id: templateId,
+      workspaceId: sourceProject.workspace_id,
+      sourceProjectId: sourceProject.id,
+      name: parsed.name.trim(),
+      description: parsed.description?.trim() || null,
+      includeTasks: parsed.includeTasks,
+      taskCount: tasks.length,
+      createdBy: user.id,
+      createdAt: new Date().toISOString()
+    };
+
+    return { ok: true, data: { template } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
@@ -360,6 +604,176 @@ export async function deleteProjectStatusAction(input: {
     return { ok: false, error: toErrorMessage(error) };
   }
 }
+
+// --- Template helpers ---
+
+async function getSourceProject(
+  supabase: AppSupabaseClient,
+  projectId: string
+): Promise<SourceProjectRow> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, workspace_id, privacy, created_by')
+    .eq('id', projectId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw error ?? new Error('Source project not found.');
+  }
+
+  return data as SourceProjectRow;
+}
+
+async function getProjectStatusesSnapshot(
+  supabase: AppSupabaseClient,
+  projectId: string
+): Promise<SourceStatusRow[]> {
+  const { data, error } = await supabase
+    .from('project_statuses')
+    .select('id, name, color, is_done, sort_order')
+    .eq('project_id', projectId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as SourceStatusRow[];
+}
+
+async function getProjectSectionsSnapshot(
+  supabase: AppSupabaseClient,
+  projectId: string
+): Promise<SourceSectionRow[]> {
+  const { data, error } = await supabase
+    .from('project_sections')
+    .select('id, name, sort_order')
+    .eq('project_id', projectId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as SourceSectionRow[];
+}
+
+async function getProjectTasksSnapshot(
+  supabase: AppSupabaseClient,
+  projectId: string,
+  statuses: SourceStatusRow[],
+  sections: SourceSectionRow[]
+): Promise<ProjectTemplateTaskSnapshot[]> {
+  const { data: sourceTasks, error } = await supabase
+    .from('tasks')
+    .select('title, description, priority, status_id, section_id, sort_order')
+    .eq('project_id', projectId)
+    .is('completed_at', null)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const openTasks = (sourceTasks ?? []) as SourceTaskRow[];
+  const statusNameById = new Map(statuses.map((status) => [status.id, status.name]));
+  const sectionNameById = new Map(sections.map((section) => [section.id, section.name]));
+
+  return openTasks.map((task) => ({
+    title: task.title,
+    description: task.description ?? undefined,
+    priority: (task.priority as 'low' | 'medium' | 'high' | null) ?? null,
+    statusName: task.status_id ? statusNameById.get(task.status_id) ?? null : null,
+    sectionName: task.section_id ? sectionNameById.get(task.section_id) ?? null : null
+  }));
+}
+
+async function canEditProject(
+  supabase: AppSupabaseClient,
+  sourceProject: SourceProjectRow,
+  userId: string
+): Promise<boolean> {
+  if (sourceProject.created_by === userId) {
+    return true;
+  }
+
+  const [{ data: projectMember, error: projectMemberError }, workspaceRole] =
+    await Promise.all([
+      supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', sourceProject.id)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      getWorkspaceRole(supabase, sourceProject.workspace_id, userId)
+    ]);
+
+  if (projectMemberError) {
+    throw projectMemberError;
+  }
+
+  return projectMember?.role === 'editor' || workspaceRole === 'admin';
+}
+
+async function getWorkspaceRole(
+  supabase: AppSupabaseClient,
+  workspaceId: string,
+  userId: string
+): Promise<'admin' | 'member' | null> {
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return data.role;
+}
+
+async function ensureTemplateNameIsAvailable(
+  supabase: AppSupabaseClient,
+  workspaceId: string,
+  name: string,
+  excludeTemplateId?: string
+) {
+  const { data, error } = await supabase
+    .from('project_templates')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .ilike('name', name.trim());
+
+  if (error) {
+    throw error;
+  }
+
+  const existing = (data ?? []) as Array<{ id: string }>;
+  const duplicate = existing.some((row) => row.id !== excludeTemplateId);
+  if (duplicate) {
+    throw new Error('Template name already exists in this workspace.');
+  }
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isUniqueViolation(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === '23505';
+}
+
+// --- Status helpers ---
 
 async function getProjectStatusesForMutation(
   supabase: AppSupabaseClient,

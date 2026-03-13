@@ -2,19 +2,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommentAction,
   completeTaskAction,
+  createFollowUpTaskAction,
   createTaskAction,
   moveTaskAction,
+  moveTaskWithConcurrencyAction,
+  reorderBoardColumnAction,
   updateTaskAction,
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
 import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
+import { getProjectAssignmentScope } from '@/lib/domain/tasks/assignees';
 import { getServerEnv } from '@/lib/env';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseMock } from '@/tests/helpers/supabase-mock';
 
 vi.mock('@/lib/auth', () => ({ requireUser: vi.fn() }));
 vi.mock('@/lib/domain/inbox/events', () => ({ createNotification: vi.fn(async () => undefined) }));
+vi.mock('@/lib/domain/tasks/assignees', () => ({
+  getProjectAssignmentScope: vi.fn(),
+  isAssigneeAllowed: (scope: { assignableUserIds: string[] } | null, assigneeId: string | null | undefined) =>
+    !assigneeId || Boolean(scope?.assignableUserIds.includes(assigneeId))
+}));
 vi.mock('@/lib/env', () => ({ getServerEnv: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
@@ -36,6 +45,12 @@ const ids = {
 describe('task actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'workspace_visible',
+      assignableUserIds: [ids.userA, ids.userB, ids.userC]
+    });
     vi.mocked(getServerEnv).mockReturnValue({
       SUPABASE_STORAGE_BUCKET_ATTACHMENTS: 'task-attachments'
     } as never);
@@ -45,7 +60,6 @@ describe('task actions', () => {
     const { supabase, history } = createSupabaseMock([
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
       { table: 'project_sections', response: { data: { id: ids.section }, error: null } },
-      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       {
         table: 'tasks',
         response: { data: null, error: null }
@@ -78,17 +92,17 @@ describe('task actions', () => {
     expect(result.data.taskId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
-    expect(history[3]?.chain.insert).toHaveBeenCalledWith(
+    expect(history[2]?.chain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: result.data.taskId,
         status_id: ids.statusTodo,
         section_id: ids.section,
         due_at: '2026-03-01T10:30:00.000Z',
-        due_timezone: 'Asia/Kolkata',
-        sort_order: 5
+        due_timezone: 'Asia/Kolkata'
       })
     );
-    expect(history[3]?.chain.select).not.toHaveBeenCalled();
+    expect(history[2]?.chain.insert.mock.calls[0]?.[0]).not.toHaveProperty('sort_order');
+    expect(history[2]?.chain.select).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({
@@ -121,11 +135,35 @@ describe('task actions', () => {
     }
   });
 
+  it('rejects create when assignee is not allowed for the project', async () => {
+    const { supabase } = createSupabaseMock([]);
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'private',
+      assignableUserIds: [ids.userA]
+    });
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createTaskAction({
+      projectId: ids.project,
+      statusId: ids.statusTodo,
+      sectionId: null,
+      title: 'Ship release',
+      assigneeId: ids.userB
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Assignee is not allowed for this project.' });
+  });
+
   it('returns task RLS error message when insert fails', async () => {
     const { supabase } = createSupabaseMock([
       { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
       { table: 'project_sections', response: { data: { id: ids.section }, error: null } },
-      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
       {
         table: 'tasks',
         response: {
@@ -195,12 +233,80 @@ describe('task actions', () => {
     );
   });
 
-  it('moves task and logs activity', async () => {
-    const { supabase, history } = createSupabaseMock([
-      { table: 'tasks', response: { data: { project_id: ids.project }, error: null } },
-      { table: 'tasks', response: { data: null, error: null } },
-      { table: 'task_activity', response: { data: null, error: null } }
+  it('rejects clearing due date on recurring task', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            assignee_id: ids.userA,
+            title: 'Recurring task',
+            recurrence_id: ids.recurrence
+          },
+          error: null
+        }
+      }
     ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await updateTaskAction({
+      id: ids.task,
+      dueAt: null
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Remove recurrence before clearing the due date.' });
+  });
+
+  it('rejects update when assignee is not allowed for the project', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            assignee_id: ids.userA,
+            title: 'Original title'
+          },
+          error: null
+        }
+      }
+    ]);
+    vi.mocked(getProjectAssignmentScope).mockResolvedValue({
+      projectId: ids.project,
+      workspaceId: ids.workspace,
+      privacy: 'private',
+      assignableUserIds: [ids.userA]
+    });
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await updateTaskAction({
+      id: ids.task,
+      assigneeId: ids.userB
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Assignee is not allowed for this project.' });
+  });
+
+  it('moves task and logs activity', async () => {
+    const { supabase, history, rpc } = createSupabaseMock(
+      [
+        { table: 'tasks', response: { data: { project_id: ids.project }, error: null } },
+        { table: 'tasks', response: { data: null, error: null } },
+        { table: 'task_activity', response: { data: null, error: null } }
+      ],
+      [{ fn: 'allocate_task_sort_order', response: { data: 42, error: null } }]
+    );
 
     vi.mocked(requireUser).mockResolvedValue({
       user: { id: ids.userA } as never,
@@ -209,13 +315,13 @@ describe('task actions', () => {
 
     const result = await moveTaskAction({
       id: ids.task,
-      statusId: ids.statusDone,
-      sortOrder: 3
+      statusId: ids.statusDone
     });
 
-    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+    expect(result).toEqual({ ok: true, data: { taskId: ids.task, sortOrder: 42 } });
+    expect(rpc).toHaveBeenCalledWith('allocate_task_sort_order');
     expect(history[1]?.chain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status_id: ids.statusDone, sort_order: 3 })
+      expect.objectContaining({ status_id: ids.statusDone, sort_order: 42 })
     );
   });
 
@@ -276,7 +382,6 @@ describe('task actions', () => {
         table: 'project_statuses',
         response: { data: { id: ids.statusTodo }, error: null }
       },
-      { table: 'tasks', response: { data: [{ sort_order: 10 }], error: null } },
       {
         table: 'tasks',
         response: { data: { id: ids.nextTask }, error: null }
@@ -291,7 +396,10 @@ describe('task actions', () => {
 
     const result = await completeTaskAction({ id: ids.task });
 
-    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+    expect(result).toEqual({
+      ok: true,
+      data: { taskId: ids.task, recurringNextTaskId: ids.nextTask }
+    });
 
     const taskActivityCalls = history
       .filter((entry) => entry.table === 'task_activity')
@@ -304,6 +412,71 @@ describe('task actions', () => {
         event_type: 'recurrence_generated'
       })
     );
+    expect(history[7]?.chain.insert.mock.calls[0]?.[0]).not.toHaveProperty('sort_order');
+  });
+
+  it('creates a follow-up task and logs it on the source task', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            section_id: ids.section,
+            assignee_id: ids.userB,
+            priority: 'high'
+          },
+          error: null
+        }
+      },
+      { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
+      { table: 'tasks', response: { data: null, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } },
+      { table: 'projects', response: { data: { workspace_id: ids.workspace }, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createFollowUpTaskAction({
+      sourceTaskId: ids.task,
+      title: 'Call vendor tomorrow'
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        taskId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        ),
+        sourceTaskId: ids.task
+      }
+    });
+
+    const sourceActivityInsert = history
+      .filter((entry) => entry.table === 'task_activity')
+      .at(-1)?.chain.insert.mock.calls[0]?.[0];
+
+    expect(sourceActivityInsert).toEqual(
+      expect.objectContaining({
+        task_id: ids.task,
+        event_type: 'follow_up_created'
+      })
+    );
+  });
+
+  it('rejects invalid follow-up input before querying', async () => {
+    const result = await createFollowUpTaskAction({
+      sourceTaskId: 'not-a-uuid',
+      title: ''
+    });
+
+    expect(result.ok).toBe(false);
+    expect(vi.mocked(requireUser)).not.toHaveBeenCalled();
   });
 
   it('adds comment and emits mention notification', async () => {
@@ -466,4 +639,236 @@ describe('task actions', () => {
       expect(result.error).toBe('Please choose a non-empty file.');
     }
   });
+
+  describe('moveTaskWithConcurrencyAction', () => {
+    const statusInProgress = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+    it('moves task with concurrency and returns lane versions', async () => {
+      const { supabase } = createSupabaseMock([
+        // getBoardLane: fetch task
+        {
+          table: 'tasks',
+          response: {
+            data: {
+              id: ids.task,
+              project_id: ids.project,
+              status_id: ids.statusTodo,
+              section_id: null,
+              sort_order: 1
+            },
+            error: null
+          }
+        },
+        // getBoardLane: destination
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusDone, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // getBoardLane: source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane: destination
+        {
+          table: 'tasks',
+          response: { data: [], error: null }
+        },
+        // getOrderedTasksForLane: source
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update destination
+        {
+          table: 'project_statuses',
+          response: {
+            data: { lane_version: 1 },
+            error: null
+          }
+        },
+        // persistLaneTaskOrder: destination update task
+        {
+          table: 'tasks',
+          response: { data: null, error: null }
+        },
+        // incrementLaneVersionSafe: getBoardLane for source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // incrementLaneVersionSafe: update source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { lane_version: 1 },
+            error: null
+          }
+        },
+        // logActivity
+        { table: 'task_activity', response: { data: null, error: null } }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await moveTaskWithConcurrencyAction({
+        taskId: ids.task,
+        projectId: ids.project,
+        fromStatusId: ids.statusTodo,
+        toStatusId: ids.statusDone,
+        targetIndex: 0,
+        expectedLaneVersion: 0
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.taskId).toBe(ids.task);
+        expect(result.data.statusId).toBe(ids.statusDone);
+        expect(result.data.laneVersion).toBe(1);
+        // Issue 2 fix: source lane version is returned
+        expect(result.data.sourceLaneVersion).toBe(1);
+        expect(result.data.sourceStatusId).toBe(ids.statusTodo);
+        expect(result.data.conflict).toBeUndefined();
+      }
+    });
+
+    it('returns version conflict when lane version does not match', async () => {
+      const { supabase } = createSupabaseMock([
+        // fetch task
+        {
+          table: 'tasks',
+          response: {
+            data: {
+              id: ids.task,
+              project_id: ids.project,
+              status_id: ids.statusTodo,
+              section_id: null,
+              sort_order: 1
+            },
+            error: null
+          }
+        },
+        // getBoardLane: destination (same lane move)
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 2 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane: destination
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update fails (no match)
+        {
+          table: 'project_statuses',
+          response: { data: null, error: null }
+        },
+        // tryBumpLaneVersion: get actual version
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 2 },
+            error: null
+          }
+        }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await moveTaskWithConcurrencyAction({
+        taskId: ids.task,
+        projectId: ids.project,
+        fromStatusId: ids.statusTodo,
+        toStatusId: ids.statusTodo,
+        targetIndex: 0,
+        expectedLaneVersion: 0
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.conflict).toBeDefined();
+        expect(result.data.conflict?.reason).toBe('version_mismatch');
+        expect(result.data.conflict?.actualVersion).toBe(2);
+      }
+    });
+  });
+
+  describe('reorderBoardColumnAction', () => {
+    it('returns conflict when lane version mismatches', async () => {
+      const { supabase } = createSupabaseMock([
+        // getBoardLane
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update fails
+        {
+          table: 'project_statuses',
+          response: { data: null, error: null }
+        },
+        // tryBumpLaneVersion: get actual
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+            error: null
+          }
+        }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await reorderBoardColumnAction({
+        projectId: ids.project,
+        statusId: ids.statusTodo,
+        orderedTaskIds: [ids.task],
+        expectedLaneVersion: 3
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.conflict).toBeDefined();
+        expect(result.data.conflict?.reason).toBe('version_mismatch');
+      }
+    });
+  });
 });
+

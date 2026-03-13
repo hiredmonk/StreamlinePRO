@@ -1,6 +1,6 @@
 import { addDays, addMonths, addWeeks } from 'date-fns';
 
-type RecurrencePattern = {
+export type RecurrencePattern = {
   frequency: 'daily' | 'weekly' | 'monthly';
   interval: number;
 };

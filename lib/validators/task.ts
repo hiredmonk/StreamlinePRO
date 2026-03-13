@@ -39,14 +39,52 @@ export const completeTaskSchema = z.object({
   id: z.uuid()
 });
 
+export const createFollowUpTaskSchema = z.object({
+  sourceTaskId: z.uuid(),
+  title: z
+    .string()
+    .min(1, 'Task title is required.')
+    .max(160, 'Task title should stay below 160 characters.'),
+  assigneeId: z.uuid().nullable().optional(),
+  priority: taskPrioritySchema.nullable().optional(),
+  dueAt: z.string().datetime().nullable().optional(),
+  dueTimezone: z.string().nullable().optional()
+});
+
 export const moveTaskSchema = z.object({
   id: z.uuid(),
   statusId: z.uuid(),
-  sectionId: z.uuid().nullable().optional(),
-  sortOrder: z.number().min(0)
+  sectionId: z.uuid().nullable().optional()
 });
 
 export const createCommentSchema = z.object({
   taskId: z.uuid(),
   body: z.string().min(1).max(2000)
+});
+
+export const moveTaskWithConcurrencySchema = z.object({
+  taskId: z.uuid(),
+  projectId: z.uuid(),
+  fromStatusId: z.uuid(),
+  toStatusId: z.uuid(),
+  toSectionId: z.uuid().nullable().optional(),
+  targetIndex: z.number().int().min(0),
+  expectedLaneVersion: z.number().int().min(0)
+});
+
+export const reorderBoardColumnSchema = z
+  .object({
+    projectId: z.uuid(),
+    statusId: z.uuid(),
+    orderedTaskIds: z.array(z.uuid()),
+    expectedLaneVersion: z.number().int().min(0)
+  })
+  .refine((value) => new Set(value.orderedTaskIds).size === value.orderedTaskIds.length, {
+    message: 'Task order contains duplicates.',
+    path: ['orderedTaskIds']
+  });
+
+export const fetchBoardOrderStateSchema = z.object({
+  projectId: z.uuid(),
+  statusId: z.uuid().optional()
 });

@@ -1,21 +1,19 @@
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
-import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions/auth-actions';
 import { AppSidebar } from '@/app/components/layout/app-sidebar';
-import { getWorkspacesForUser } from '@/lib/domain/projects/queries';
+import { loadPrivateLayoutData } from '@/lib/page-loaders/private-layout';
 
 export default async function PrivateLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
-  const { user, supabase } = await requireUser();
-  const workspaces = await getWorkspacesForUser(supabase, user.id);
+  const { workspaces, userEmail } = await loadPrivateLayoutData();
 
   return (
     <div className="app-shell-grid">
-      <AppSidebar workspaces={workspaces} userEmail={user.email ?? 'Unknown user'} />
+      <AppSidebar workspaces={workspaces} userEmail={userEmail} />
       <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-10">
         <header className="glass-panel mb-5 flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div>

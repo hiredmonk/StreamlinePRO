@@ -4,12 +4,43 @@ import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
+import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { getNextDueDate, parseRecurrencePattern } from '@/lib/domain/tasks/recurrence';
-import { createTaskSchema, updateTaskSchema, completeTaskSchema, moveTaskSchema, createCommentSchema } from '@/lib/validators/task';
+import { allocateTaskSortOrder } from '@/lib/domain/tasks/sort-order';
+import type {
+  BoardConflictInfo,
+  MoveTaskWithConcurrencyInput,
+  MoveTaskWithConcurrencyOutput,
+  ReorderBoardColumnInput,
+  ReorderBoardColumnOutput
+} from '@/lib/contracts/board-concurrent-ordering';
+import {
+  createCommentSchema,
+  createFollowUpTaskSchema,
+  createTaskSchema,
+  updateTaskSchema,
+  completeTaskSchema,
+  moveTaskSchema,
+  moveTaskWithConcurrencySchema,
+  reorderBoardColumnSchema
+} from '@/lib/validators/task';
 import { getServerEnv } from '@/lib/env';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
 import type { Json } from '@/lib/supabase/types';
+
+type ServerSupabaseClient = Awaited<ReturnType<typeof requireUser>>['supabase'];
+type BoardLaneRow = {
+  id: string;
+  project_id: string;
+  lane_version: number;
+};
+type OrderedTaskRow = {
+  id: string;
+  status_id: string;
+  section_id: string | null;
+  sort_order: number;
+};
 
 export async function createTaskAction(input: {
   projectId: string;
@@ -27,6 +58,10 @@ export async function createTaskAction(input: {
 }): Promise<ActionResult<{ taskId: string }>> {
   try {
     const { user, supabase } = await requireUser();
+    const assignmentScope = await getProjectAssignmentScope(supabase, input.projectId);
+    if (!assignmentScope) {
+      throw new Error('Project not found.');
+    }
 
     let statusId = input.statusId;
     if (!statusId) {
@@ -62,21 +97,18 @@ export async function createTaskAction(input: {
       ...input,
       statusId,
       sectionId,
-      assigneeId: input.assigneeId ?? user.id
+      assigneeId:
+        input.assigneeId === undefined
+          ? isAssigneeAllowed(assignmentScope, user.id)
+            ? user.id
+            : null
+          : input.assigneeId
     });
 
-    const { data: orderRows, error: orderError } = await supabase
-      .from('tasks')
-      .select('sort_order')
-      .eq('project_id', parsed.projectId)
-      .order('sort_order', { ascending: false })
-      .limit(1);
-
-    if (orderError) {
-      throw orderError;
+    if (!isAssigneeAllowed(assignmentScope, parsed.assigneeId)) {
+      throw new Error('Assignee is not allowed for this project.');
     }
 
-    const nextSortOrder = (orderRows?.[0]?.sort_order ?? 0) + 1;
     const taskId = randomUUID();
 
     const { error } = await supabase
@@ -88,15 +120,14 @@ export async function createTaskAction(input: {
         status_id: parsed.statusId,
         title: parsed.title,
         description: parsed.description ?? null,
-        assignee_id: parsed.assigneeId ?? user.id,
+        assignee_id: parsed.assigneeId,
         creator_id: user.id,
         due_at: parsed.dueAt ?? null,
         due_timezone: parsed.dueTimezone ?? null,
         priority: parsed.priority ?? null,
         parent_task_id: parsed.parentTaskId ?? null,
         recurrence_id: parsed.recurrenceId ?? null,
-        is_today: parsed.isToday ?? false,
-        sort_order: nextSortOrder
+        is_today: parsed.isToday ?? false
       });
 
     if (error) {
@@ -151,12 +182,25 @@ export async function updateTaskAction(input: {
 
     const { data: existingTask, error: existingTaskError } = await supabase
       .from('tasks')
-      .select('id, project_id, assignee_id, title')
+      .select('id, project_id, assignee_id, title, recurrence_id')
       .eq('id', parsed.id)
       .maybeSingle();
 
     if (existingTaskError || !existingTask) {
       throw existingTaskError ?? new Error('Task not found.');
+    }
+
+    if (parsed.dueAt === null && existingTask.recurrence_id) {
+      throw new Error('Remove recurrence before clearing the due date.');
+    }
+
+    const assignmentScope = await getProjectAssignmentScope(supabase, existingTask.project_id);
+    if (!assignmentScope) {
+      throw new Error('Project not found.');
+    }
+
+    if (parsed.assigneeId !== undefined && !isAssigneeAllowed(assignmentScope, parsed.assigneeId)) {
+      throw new Error('Assignee is not allowed for this project.');
     }
 
     const { error } = await supabase
@@ -213,8 +257,7 @@ export async function moveTaskAction(input: {
   id: string;
   statusId: string;
   sectionId?: string | null;
-  sortOrder: number;
-}): Promise<ActionResult<{ taskId: string }>> {
+}): Promise<ActionResult<{ taskId: string; sortOrder: number }>> {
   try {
     const parsed = moveTaskSchema.parse(input);
     const { user, supabase } = await requireUser();
@@ -229,12 +272,14 @@ export async function moveTaskAction(input: {
       throw taskError ?? new Error('Task not found.');
     }
 
+    const nextSortOrder = await allocateTaskSortOrder(supabase);
+
     const { error } = await supabase
       .from('tasks')
       .update({
         status_id: parsed.statusId,
         section_id: parsed.sectionId ?? null,
-        sort_order: parsed.sortOrder,
+        sort_order: nextSortOrder,
         updated_at: new Date().toISOString()
       })
       .eq('id', parsed.id);
@@ -252,13 +297,15 @@ export async function moveTaskAction(input: {
 
     revalidateTaskPaths(task.project_id);
 
-    return { ok: true, data: { taskId: parsed.id } };
+    return { ok: true, data: { taskId: parsed.id, sortOrder: nextSortOrder } };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
 }
 
-export async function completeTaskAction(input: { id: string }): Promise<ActionResult<{ taskId: string }>> {
+export async function completeTaskAction(input: {
+  id: string;
+}): Promise<ActionResult<{ taskId: string; recurringNextTaskId?: string }>> {
   try {
     const parsed = completeTaskSchema.parse(input);
     const { user, supabase } = await requireUser();
@@ -308,17 +355,84 @@ export async function completeTaskAction(input: { id: string }): Promise<ActionR
       payload: { completedAt }
     });
 
+    let recurringNextTaskId: string | undefined;
     if (task.recurrence_id) {
-      await createNextTaskFromRecurrence(supabase, {
+      const nextTask = await createNextTaskFromRecurrence(supabase, {
         completedTaskId: task.id,
         recurrenceId: task.recurrence_id,
         actorId: user.id
       });
+      recurringNextTaskId = nextTask?.id;
     }
 
     revalidateTaskPaths(task.project_id);
 
-    return { ok: true, data: { taskId: task.id } };
+    return {
+      ok: true,
+      data: recurringNextTaskId
+        ? {
+            taskId: task.id,
+            recurringNextTaskId
+          }
+        : {
+            taskId: task.id
+          }
+    };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function createFollowUpTaskAction(input: {
+  sourceTaskId: string;
+  title: string;
+  assigneeId?: string | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+  dueAt?: string | null;
+  dueTimezone?: string | null;
+}): Promise<ActionResult<{ taskId: string; sourceTaskId: string }>> {
+  try {
+    const parsed = createFollowUpTaskSchema.parse(input);
+    const { user, supabase } = await requireUser();
+    const { data: sourceTask, error } = await supabase
+      .from('tasks')
+      .select('id, project_id, section_id, assignee_id, priority')
+      .eq('id', parsed.sourceTaskId)
+      .maybeSingle();
+
+    if (error || !sourceTask) {
+      throw error ?? new Error('Source task not found.');
+    }
+
+    const result = await createTaskAction({
+      projectId: sourceTask.project_id,
+      sectionId: sourceTask.section_id,
+      title: parsed.title,
+      assigneeId:
+        parsed.assigneeId === undefined ? sourceTask.assignee_id : parsed.assigneeId,
+      priority: parsed.priority === undefined ? sourceTask.priority : parsed.priority,
+      dueAt: parsed.dueAt ?? null,
+      dueTimezone: parsed.dueTimezone ?? null
+    });
+
+    if (!result.ok) {
+      return result;
+    }
+
+    await logActivity(supabase, {
+      taskId: parsed.sourceTaskId,
+      actorId: user.id,
+      eventType: 'follow_up_created',
+      payload: { followUpTaskId: result.data.taskId }
+    });
+
+    return {
+      ok: true,
+      data: {
+        taskId: result.data.taskId,
+        sourceTaskId: parsed.sourceTaskId
+      }
+    };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
@@ -494,6 +608,536 @@ export async function uploadTaskAttachmentAction(input: {
   }
 }
 
+export async function moveTaskWithConcurrencyAction(
+  input: MoveTaskWithConcurrencyInput
+): Promise<ActionResult<MoveTaskWithConcurrencyOutput>> {
+  try {
+    const parsed = moveTaskWithConcurrencySchema.parse(input);
+    const { user, supabase } = await requireUser();
+
+    const { data: task, error: taskError } = await supabase
+      .from('tasks')
+      .select('id, project_id, status_id, section_id, sort_order')
+      .eq('id', parsed.taskId)
+      .maybeSingle();
+
+    if (taskError || !task) {
+      throw taskError ?? new Error('Task not found.');
+    }
+
+    if (task.project_id !== parsed.projectId) {
+      throw new Error('Task does not belong to the provided project.');
+    }
+
+    const destinationLane = await getBoardLane(supabase, parsed.projectId, parsed.toStatusId);
+
+    if (!destinationLane) {
+      return {
+        ok: true,
+        data: buildMoveConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.toStatusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: -1,
+            reason: 'invalid_lane'
+          }),
+          task
+        )
+      };
+    }
+
+    let sourceLane: BoardLaneRow | null = destinationLane;
+    if (parsed.fromStatusId !== parsed.toStatusId) {
+      sourceLane = await getBoardLane(supabase, parsed.projectId, parsed.fromStatusId);
+      if (!sourceLane) {
+        return {
+          ok: true,
+          data: buildMoveConflictOutput(
+            parsed,
+            buildBoardConflict({
+              projectId: parsed.projectId,
+              statusId: parsed.fromStatusId,
+              expectedVersion: parsed.expectedLaneVersion,
+              actualVersion: -1,
+              reason: 'invalid_lane'
+            }),
+            task
+          )
+        };
+      }
+    }
+
+    if (task.status_id !== parsed.fromStatusId) {
+      return {
+        ok: true,
+        data: buildMoveConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.fromStatusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: sourceLane?.lane_version ?? -1,
+            reason: 'missing_task'
+          }),
+          task
+        )
+      };
+    }
+
+    if (parsed.toSectionId) {
+      const { data: section, error: sectionError } = await supabase
+        .from('project_sections')
+        .select('id, project_id')
+        .eq('id', parsed.toSectionId)
+        .maybeSingle();
+
+      if (sectionError || !section || section.project_id !== parsed.projectId) {
+        return {
+          ok: true,
+          data: buildMoveConflictOutput(
+            parsed,
+            buildBoardConflict({
+              projectId: parsed.projectId,
+              statusId: parsed.toStatusId,
+              expectedVersion: parsed.expectedLaneVersion,
+              actualVersion: destinationLane.lane_version,
+              reason: 'invalid_lane'
+            }),
+            task
+          )
+        };
+      }
+    }
+
+    const destinationRows = await getOrderedTasksForLane(supabase, parsed.projectId, parsed.toStatusId);
+    if (hasDuplicateSortOrders(destinationRows)) {
+      return {
+        ok: true,
+        data: buildMoveConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.toStatusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: destinationLane.lane_version,
+            reason: 'duplicate_sort_order'
+          }),
+          task
+        )
+      };
+    }
+
+    let sourceRows: OrderedTaskRow[] = [];
+    if (parsed.fromStatusId !== parsed.toStatusId) {
+      sourceRows = await getOrderedTasksForLane(supabase, parsed.projectId, parsed.fromStatusId);
+
+      if (hasDuplicateSortOrders(sourceRows)) {
+        return {
+          ok: true,
+          data: buildMoveConflictOutput(
+            parsed,
+            buildBoardConflict({
+              projectId: parsed.projectId,
+              statusId: parsed.fromStatusId,
+              expectedVersion: parsed.expectedLaneVersion,
+              actualVersion: sourceLane?.lane_version ?? -1,
+              reason: 'duplicate_sort_order'
+            }),
+            task
+          )
+        };
+      }
+    }
+
+    const destinationTaskIds = destinationRows
+      .map((row) => row.id)
+      .filter((taskId) => taskId !== task.id);
+    const clampedTargetIndex = clampTargetIndex(parsed.targetIndex, destinationTaskIds.length);
+    destinationTaskIds.splice(clampedTargetIndex, 0, task.id);
+
+    const versionResult = await tryBumpLaneVersion(supabase, {
+      projectId: parsed.projectId,
+      statusId: parsed.toStatusId,
+      expectedLaneVersion: parsed.expectedLaneVersion
+    });
+
+    if (!versionResult.ok) {
+      return {
+        ok: true,
+        data: buildMoveConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.toStatusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: versionResult.actualVersion,
+            reason: 'version_mismatch'
+          }),
+          task
+        )
+      };
+    }
+
+    await persistLaneTaskOrder(supabase, {
+      orderedTaskIds: destinationTaskIds,
+      movedTaskId: task.id,
+      movedTaskStatusId: parsed.toStatusId,
+      movedTaskSectionId: parsed.toSectionId ?? null
+    });
+
+    // Issue 2 fix: bump source lane and return its new version
+    let sourceLaneVersion: number | undefined;
+    let sourceStatusId: string | undefined;
+    if (parsed.fromStatusId !== parsed.toStatusId) {
+      const sourceTaskIds = sourceRows
+        .map((row) => row.id)
+        .filter((taskId) => taskId !== task.id);
+
+      await persistLaneTaskOrder(supabase, {
+        orderedTaskIds: sourceTaskIds
+      });
+
+      const newSourceVersion = await incrementLaneVersionSafe(supabase, parsed.projectId, parsed.fromStatusId);
+      if (newSourceVersion !== undefined) {
+        sourceLaneVersion = newSourceVersion;
+        sourceStatusId = parsed.fromStatusId;
+      }
+    }
+
+    await logActivity(supabase, {
+      taskId: task.id,
+      actorId: user.id,
+      eventType: 'task_moved',
+      payload: {
+        fromStatusId: parsed.fromStatusId,
+        toStatusId: parsed.toStatusId,
+        targetIndex: clampedTargetIndex,
+        laneVersion: versionResult.laneVersion
+      }
+    });
+
+    revalidateTaskPaths(parsed.projectId);
+
+    return {
+      ok: true,
+      data: {
+        taskId: task.id,
+        projectId: parsed.projectId,
+        statusId: parsed.toStatusId,
+        sectionId: parsed.toSectionId ?? null,
+        sortOrder: clampedTargetIndex + 1,
+        laneVersion: versionResult.laneVersion,
+        sourceLaneVersion,
+        sourceStatusId
+      }
+    };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function reorderBoardColumnAction(
+  input: ReorderBoardColumnInput
+): Promise<ActionResult<ReorderBoardColumnOutput>> {
+  try {
+    const parsed = reorderBoardColumnSchema.parse(input);
+    const { user, supabase } = await requireUser();
+
+    const lane = await getBoardLane(supabase, parsed.projectId, parsed.statusId);
+    if (!lane) {
+      return {
+        ok: true,
+        data: buildReorderConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.statusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: -1,
+            reason: 'invalid_lane'
+          })
+        )
+      };
+    }
+
+    const existingRows = await getOrderedTasksForLane(supabase, parsed.projectId, parsed.statusId);
+    if (hasDuplicateSortOrders(existingRows)) {
+      return {
+        ok: true,
+        data: buildReorderConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.statusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: lane.lane_version,
+            reason: 'duplicate_sort_order'
+          })
+        )
+      };
+    }
+
+    const currentTaskIds = existingRows.map((row) => row.id);
+    if (!hasExactTaskSet(currentTaskIds, parsed.orderedTaskIds)) {
+      return {
+        ok: true,
+        data: buildReorderConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.statusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: lane.lane_version,
+            reason: 'missing_task'
+          })
+        )
+      };
+    }
+
+    const versionResult = await tryBumpLaneVersion(supabase, {
+      projectId: parsed.projectId,
+      statusId: parsed.statusId,
+      expectedLaneVersion: parsed.expectedLaneVersion
+    });
+
+    if (!versionResult.ok) {
+      return {
+        ok: true,
+        data: buildReorderConflictOutput(
+          parsed,
+          buildBoardConflict({
+            projectId: parsed.projectId,
+            statusId: parsed.statusId,
+            expectedVersion: parsed.expectedLaneVersion,
+            actualVersion: versionResult.actualVersion,
+            reason: 'version_mismatch'
+          })
+        )
+      };
+    }
+
+    await persistLaneTaskOrder(supabase, {
+      orderedTaskIds: parsed.orderedTaskIds
+    });
+
+    revalidateTaskPaths(parsed.projectId);
+
+    return {
+      ok: true,
+      data: {
+        projectId: parsed.projectId,
+        statusId: parsed.statusId,
+        laneVersion: versionResult.laneVersion,
+        updatedTaskIds: parsed.orderedTaskIds
+      }
+    };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+async function getBoardLane(
+  supabase: ServerSupabaseClient,
+  projectId: string,
+  statusId: string
+): Promise<BoardLaneRow | null> {
+  const { data, error } = await supabase
+    .from('project_statuses')
+    .select('id, project_id, lane_version')
+    .eq('project_id', projectId)
+    .eq('id', statusId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+async function getOrderedTasksForLane(
+  supabase: ServerSupabaseClient,
+  projectId: string,
+  statusId: string
+): Promise<OrderedTaskRow[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id, status_id, section_id, sort_order')
+    .eq('project_id', projectId)
+    .eq('status_id', statusId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+function clampTargetIndex(targetIndex: number, laneLength: number) {
+  if (targetIndex < 0) {
+    return 0;
+  }
+
+  if (targetIndex > laneLength) {
+    return laneLength;
+  }
+
+  return targetIndex;
+}
+
+function hasDuplicateSortOrders(tasks: OrderedTaskRow[]) {
+  const seen = new Set<number>();
+
+  for (const task of tasks) {
+    if (seen.has(task.sort_order)) {
+      return true;
+    }
+    seen.add(task.sort_order);
+  }
+
+  return false;
+}
+
+function hasExactTaskSet(currentTaskIds: string[], nextTaskIds: string[]) {
+  if (currentTaskIds.length !== nextTaskIds.length) {
+    return false;
+  }
+
+  const expected = new Set(currentTaskIds);
+  return nextTaskIds.every((taskId) => expected.has(taskId));
+}
+
+async function tryBumpLaneVersion(
+  supabase: ServerSupabaseClient,
+  input: {
+    projectId: string;
+    statusId: string;
+    expectedLaneVersion: number;
+  }
+): Promise<{ ok: true; laneVersion: number } | { ok: false; actualVersion: number }> {
+  const { data: updatedLane, error: updateError } = await supabase
+    .from('project_statuses')
+    .update({ lane_version: input.expectedLaneVersion + 1 })
+    .eq('project_id', input.projectId)
+    .eq('id', input.statusId)
+    .eq('lane_version', input.expectedLaneVersion)
+    .select('lane_version')
+    .maybeSingle();
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  if (updatedLane) {
+    return { ok: true, laneVersion: updatedLane.lane_version };
+  }
+
+  const actualLane = await getBoardLane(supabase, input.projectId, input.statusId);
+  return { ok: false, actualVersion: actualLane?.lane_version ?? -1 };
+}
+
+async function incrementLaneVersionSafe(
+  supabase: ServerSupabaseClient,
+  projectId: string,
+  statusId: string
+): Promise<number | undefined> {
+  try {
+    const lane = await getBoardLane(supabase, projectId, statusId);
+    if (!lane) {
+      return undefined;
+    }
+
+    const { data: updatedLane } = await supabase
+      .from('project_statuses')
+      .update({ lane_version: lane.lane_version + 1 })
+      .eq('id', statusId)
+      .eq('project_id', projectId)
+      .eq('lane_version', lane.lane_version)
+      .select('lane_version')
+      .maybeSingle();
+
+    return updatedLane?.lane_version ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function persistLaneTaskOrder(
+  supabase: ServerSupabaseClient,
+  input: {
+    orderedTaskIds: string[];
+    movedTaskId?: string;
+    movedTaskStatusId?: string;
+    movedTaskSectionId?: string | null;
+  }
+) {
+  for (const [index, taskId] of input.orderedTaskIds.entries()) {
+    const updatePayload: {
+      sort_order: number;
+      updated_at: string;
+      status_id?: string;
+      section_id?: string | null;
+    } = {
+      sort_order: index + 1,
+      updated_at: new Date().toISOString()
+    };
+
+    if (input.movedTaskId === taskId && input.movedTaskStatusId) {
+      updatePayload.status_id = input.movedTaskStatusId;
+      updatePayload.section_id = input.movedTaskSectionId ?? null;
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .update(updatePayload)
+      .eq('id', taskId);
+
+    if (error) {
+      throw error;
+    }
+  }
+}
+
+function buildBoardConflict(input: BoardConflictInfo): BoardConflictInfo {
+  return input;
+}
+
+function buildMoveConflictOutput(
+  input: MoveTaskWithConcurrencyInput,
+  conflict: BoardConflictInfo,
+  task: {
+    status_id: string;
+    section_id: string | null;
+    sort_order: number;
+  }
+): MoveTaskWithConcurrencyOutput {
+  return {
+    taskId: input.taskId,
+    projectId: input.projectId,
+    statusId: task.status_id,
+    sectionId: task.section_id,
+    sortOrder: task.sort_order,
+    laneVersion: conflict.actualVersion,
+    conflict
+  };
+}
+
+function buildReorderConflictOutput(
+  input: ReorderBoardColumnInput,
+  conflict: BoardConflictInfo
+): ReorderBoardColumnOutput {
+  return {
+    projectId: input.projectId,
+    statusId: input.statusId,
+    laneVersion: conflict.actualVersion,
+    updatedTaskIds: [],
+    conflict
+  };
+}
+
 async function createNextTaskFromRecurrence(
   supabase: Awaited<ReturnType<typeof requireUser>>['supabase'],
   input: {
@@ -501,7 +1145,7 @@ async function createNextTaskFromRecurrence(
     recurrenceId: string;
     actorId: string;
   }
-) {
+): Promise<{ id: string } | null> {
   const { data: completedTask, error: completedTaskError } = await supabase
     .from('tasks')
     .select(
@@ -521,12 +1165,12 @@ async function createNextTaskFromRecurrence(
     .maybeSingle();
 
   if (recurrenceError || !recurrence || recurrence.is_paused) {
-    return;
+    return null;
   }
 
   const pattern = parseRecurrencePattern(recurrence.pattern_json);
   if (!pattern) {
-    return;
+    return null;
   }
 
   const nextDueAt = getNextDueDate(new Date(completedTask.due_at), pattern).toISOString();
@@ -544,19 +1188,6 @@ async function createNextTaskFromRecurrence(
     throw statusError ?? new Error('No open status found for recurring task creation.');
   }
 
-  const { data: orderRows, error: orderError } = await supabase
-    .from('tasks')
-    .select('sort_order')
-    .eq('project_id', completedTask.project_id)
-    .order('sort_order', { ascending: false })
-    .limit(1);
-
-  if (orderError) {
-    throw orderError;
-  }
-
-  const nextSortOrder = (orderRows?.[0]?.sort_order ?? 0) + 1;
-
   const { data: nextTask, error: nextTaskError } = await supabase
     .from('tasks')
     .insert({
@@ -571,8 +1202,7 @@ async function createNextTaskFromRecurrence(
       due_timezone: completedTask.due_timezone,
       priority: completedTask.priority,
       recurrence_id: completedTask.recurrence_id,
-      is_today: false,
-      sort_order: nextSortOrder
+      is_today: false
     })
     .select('id')
     .single();
@@ -587,6 +1217,10 @@ async function createNextTaskFromRecurrence(
     eventType: 'recurrence_generated',
     payload: { sourceTaskId: input.completedTaskId }
   });
+
+  return {
+    id: nextTask.id
+  };
 }
 
 async function getWorkspaceIdByProjectId(

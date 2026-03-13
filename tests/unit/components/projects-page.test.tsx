@@ -1,10 +1,8 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ProjectsPage from '@/app/(app)/projects/page';
-import { requireUser } from '@/lib/auth';
-import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
-import { listWorkspaceMembersQuery } from '@/lib/actions/member-actions';
+import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: any) => (
@@ -13,33 +11,18 @@ vi.mock('next/link', () => ({
     </a>
   )
 }));
-vi.mock('@/lib/auth', () => ({ requireUser: vi.fn() }));
-vi.mock('@/lib/domain/projects/queries', () => ({
-  getWorkspacesForUser: vi.fn(),
-  getProjectsForWorkspace: vi.fn()
-}));
-vi.mock('@/lib/actions/member-actions', () => ({
-  listWorkspaceMembersQuery: vi.fn()
+vi.mock('@/lib/page-loaders/projects-page', () => ({
+  loadProjectsPageData: vi.fn()
 }));
 
 describe('ProjectsPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(requireUser).mockResolvedValue({
-      user: { id: '11111111-1111-4111-8111-111111111111' } as never,
-      supabase: { from: vi.fn() } as never
-    });
-  });
-
-  it('renders all workspaces view when workspace is not selected', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' },
-      { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
-    vi.mocked(listWorkspaceMembersQuery).mockResolvedValue({
-      workspaceId: 'w1',
-      members: []
+  it('renders all workspaces view when loader returns workspace directory mode', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-directory',
+      workspaces: [
+        { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+        { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
+      ]
     });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({}) }));
@@ -51,54 +34,135 @@ describe('ProjectsPage', () => {
       'href',
       '/projects?workspace=new'
     );
-    expect(getProjectsForWorkspace).not.toHaveBeenCalled();
-    expect(listWorkspaceMembersQuery).not.toHaveBeenCalled();
   });
 
-  it('renders active workspace project list when workspace query is selected', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' },
-      { id: 'w2', name: 'Marketing', icon: null, role: 'member' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
-    vi.mocked(listWorkspaceMembersQuery).mockResolvedValue({
-      workspaceId: 'w1',
-      members: [
+  it('renders onboarding checklist and template selection in create form for an admin workspace with no tasks yet', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-detail',
+      currentUserId: 'u1',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+      projects: [],
+      templates: [
         {
+          id: 't1',
           workspaceId: 'w1',
-          userId: 'u1',
-          email: 'owner@example.com',
-          role: 'admin',
-          joinedAt: '2026-02-15T00:00:00.000Z'
+          sourceProjectId: 'p1',
+          name: 'Sprint',
+          description: 'Two-week sprint',
+          includeTasks: true,
+          taskCount: 3,
+          createdBy: 'u1',
+          createdAt: '2026-03-04T00:00:00.000Z'
         }
-      ]
+      ],
+      teamAccess: {
+        members: [
+          {
+            userId: 'u1',
+            role: 'admin',
+            createdAt: '2026-03-01T00:00:00.000Z',
+            email: 'alex@example.com',
+            displayName: 'Alex',
+            avatarUrl: null,
+            initials: 'AL'
+          }
+        ],
+        pendingInvites: []
+      },
+      onboarding: {
+        title: 'Start your first workflow',
+        description:
+          'Create the first project now, then add a task to confirm the workflow end to end.',
+        steps: [
+          {
+            id: 'workspace',
+            title: 'Workspace created',
+            description: 'Your team space is ready.',
+            status: 'complete'
+          },
+          {
+            id: 'invite',
+            title: 'Invite teammates',
+            description: 'Optional for solo setup. A pending invite counts as progress.',
+            status: 'pending',
+            optional: true
+          },
+          {
+            id: 'project',
+            title: 'Create first project',
+            description: 'Start with one project for the team or workflow you are setting up.',
+            status: 'current'
+          },
+          {
+            id: 'task',
+            title: 'Add first task',
+            description: 'Use the first task to confirm the workflow feels right.',
+            status: 'pending'
+          }
+        ],
+        primaryAction: {
+          label: 'Create first project',
+          href: '#create-project-form'
+        },
+        secondaryAction: {
+          label: 'Invite teammates',
+          href: '#team-access-panel'
+        }
+      }
+    });
+
+    const { container } = render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
+
+    expect(screen.getByText('Workspace onboarding')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create first project' })).toHaveAttribute(
+      'href',
+      '#create-project-form'
+    );
+    expect(screen.getByRole('link', { name: 'Invite teammates' })).toHaveAttribute(
+      'href',
+      '#team-access-panel'
+    );
+    expect(screen.getByText('Members and invites')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Sprint/ })).toBeInTheDocument();
+    expect(container.querySelector('#create-project-form')).toBeTruthy();
+    expect(container.querySelector('#team-access-panel')).toBeTruthy();
+  });
+
+  it('renders active workspace project list without onboarding when the workspace already has tasks', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'workspace-detail',
+      currentUserId: 'u1',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
+      activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
+      projects: [
+        {
+          id: 'p1',
+          workspaceId: 'w1',
+          name: 'Core',
+          description: null,
+          privacy: 'workspace_visible',
+          taskCount: 1,
+          overdueCount: 0
+        }
+      ],
+      templates: [],
+      teamAccess: null,
+      onboarding: null
     });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'w1' }) }));
 
     expect(screen.getByText('Active workspace')).toBeInTheDocument();
-    expect(screen.getByText('Ops')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument();
-    const workspaceInputs = screen
-      .getAllByDisplayValue('w1')
-      .filter((element) => element.getAttribute('name') === 'workspaceId');
-    expect(workspaceInputs.length).toBeGreaterThan(0);
-    expect(getProjectsForWorkspace).toHaveBeenCalledWith(expect.anything(), 'w1');
-    expect(listWorkspaceMembersQuery).toHaveBeenCalledWith({
-      workspaceId: 'w1',
-      actorUserId: '11111111-1111-4111-8111-111111111111'
-    });
-    expect(screen.getByText('Workspace members')).toBeInTheDocument();
+    expect(screen.getByText('Core')).toBeInTheDocument();
+    expect(screen.queryByText('Workspace onboarding')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Blank project' })).not.toBeInTheDocument();
   });
 
-  it('renders create workspace flow when workspace query is new', async () => {
-    vi.mocked(getWorkspacesForUser).mockResolvedValue([
-      { id: 'w1', name: 'Ops', icon: '⚙️', role: 'admin' }
-    ]);
-    vi.mocked(getProjectsForWorkspace).mockResolvedValue([]);
-    vi.mocked(listWorkspaceMembersQuery).mockResolvedValue({
-      workspaceId: 'w1',
-      members: []
+  it('renders create workspace flow when loader returns create workspace mode', async () => {
+    vi.mocked(loadProjectsPageData).mockResolvedValue({
+      mode: 'create-workspace',
+      workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }]
     });
 
     render(await ProjectsPage({ searchParams: Promise.resolve({ workspace: 'new' }) }));
@@ -110,7 +174,5 @@ describe('ProjectsPage', () => {
       'href',
       '/projects'
     );
-    expect(getProjectsForWorkspace).not.toHaveBeenCalled();
-    expect(listWorkspaceMembersQuery).not.toHaveBeenCalled();
   });
 });

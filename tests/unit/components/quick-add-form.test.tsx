@@ -12,6 +12,19 @@ describe('QuickAddForm', () => {
     render(
       <QuickAddForm
         preselectedProjectId="p2"
+        assigneesByProject={{
+          p2: [
+            {
+              userId: 'u1',
+              email: 'alex@example.com',
+              displayName: 'Alex',
+              avatarUrl: null,
+              initials: 'AL'
+            }
+          ]
+        }}
+        currentUserId="u1"
+        defaultAssigneeMode="self-when-allowed"
         projects={[
           { id: 'p1', name: 'Core' },
           { id: 'p2', name: 'Launch' }
@@ -19,8 +32,11 @@ describe('QuickAddForm', () => {
       />
     );
 
-    const projectSelect = screen.getByRole('combobox');
+    const projectSelect = screen.getAllByRole('combobox')[0];
     expect(projectSelect).toHaveValue('p2');
+    expect(screen.getAllByRole('combobox')).toHaveLength(3);
+    expect(screen.getByDisplayValue('Alex')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('No priority')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Add a task in under 5 seconds...')).toBeRequired();
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
   });

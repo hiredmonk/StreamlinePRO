@@ -3,10 +3,9 @@ import { EmptyState } from '@/app/components/ui/empty-state';
 import { CreateProjectForm } from '@/app/components/projects/create-project-form';
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
-import { WorkspaceMembersPanel } from '@/app/components/projects/workspace-members-panel';
-import { requireUser } from '@/lib/auth';
-import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
-import { listWorkspaceMembersQuery } from '@/lib/actions/member-actions';
+import { TeamAccessPanel } from '@/app/components/projects/team-access-panel';
+import { WorkspaceOnboardingPanel } from '@/app/components/projects/workspace-onboarding-panel';
+import { loadProjectsPageData } from '@/lib/page-loaders/projects-page';
 
 export default async function ProjectsPage({
   searchParams
@@ -14,15 +13,18 @@ export default async function ProjectsPage({
   searchParams: Promise<{ workspace?: string }>;
 }) {
   const params = await searchParams;
-  const { user, supabase } = await requireUser();
-  const workspaces = await getWorkspacesForUser(supabase, user.id);
-  const workspaceParam = params.workspace;
+  const pageData = await loadProjectsPageData(params);
 
-  if (!workspaces.length) {
-    return <CreateWorkspaceForm />;
+  if (pageData.mode === 'no-workspaces') {
+    return (
+      <CreateWorkspaceForm
+        redirectTo="workspace-detail"
+        description="Start with one workspace. After this, you will create a first project and add a first task."
+      />
+    );
   }
 
-  if (workspaceParam === 'new') {
+  if (pageData.mode === 'create-workspace') {
     return (
       <div className="space-y-4">
         <section className="glass-panel flex items-center justify-between gap-3 p-4">
@@ -45,16 +47,13 @@ export default async function ProjectsPage({
         <CreateWorkspaceForm
           title="Create another workspace"
           description="Set up a separate workspace for a new team, client, or initiative."
+          redirectTo="workspace-directory"
         />
       </div>
     );
   }
 
-  const activeWorkspace = workspaceParam
-    ? workspaces.find((workspace) => workspace.id === workspaceParam) ?? null
-    : null;
-
-  if (!activeWorkspace) {
+  if (pageData.mode === 'workspace-directory') {
     return (
       <div className="space-y-4">
         <section className="glass-panel flex items-center justify-between gap-3 p-4">
@@ -76,7 +75,7 @@ export default async function ProjectsPage({
         </section>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {workspaces.map((workspace) => (
+          {pageData.workspaces.map((workspace) => (
             <Link
               key={workspace.id}
               href={`/projects?workspace=${workspace.id}`}
@@ -97,14 +96,6 @@ export default async function ProjectsPage({
     );
   }
 
-  const [projects, workspaceMembers] = await Promise.all([
-    getProjectsForWorkspace(supabase, activeWorkspace.id),
-    listWorkspaceMembersQuery({
-      workspaceId: activeWorkspace.id,
-      actorUserId: user.id
-    }).catch(() => null)
-  ]);
-
   return (
     <div className="space-y-4">
       <section className="glass-panel flex items-center justify-between gap-3 p-4">
@@ -114,7 +105,7 @@ export default async function ProjectsPage({
             className="text-3xl font-semibold text-[#1f241f]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {activeWorkspace.name}
+            {pageData.activeWorkspace.name}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -133,22 +124,29 @@ export default async function ProjectsPage({
         </div>
       </section>
 
-      <CreateProjectForm workspaceId={activeWorkspace.id} />
+      {pageData.onboarding ? <WorkspaceOnboardingPanel onboarding={pageData.onboarding} /> : null}
 
-      {workspaceMembers ? (
-        <WorkspaceMembersPanel
-          workspace={activeWorkspace}
-          actorUserId={user.id}
-          members={workspaceMembers.members}
+      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} templates={pageData.templates} />
+
+      {pageData.teamAccess ? (
+        <TeamAccessPanel
+          id="team-access-panel"
+          workspaceId={pageData.activeWorkspace.id}
+          members={pageData.teamAccess.members}
+          pendingInvites={pageData.teamAccess.pendingInvites}
         />
       ) : null}
 
-      {projects.length ? (
-        <ProjectCardGrid projects={projects} />
+      {pageData.projects.length ? (
+        <ProjectCardGrid projects={pageData.projects} />
       ) : (
         <EmptyState
           title="No projects yet"
-          description="Create your first project above. Sections and statuses are initialized automatically."
+          description={
+            pageData.onboarding
+              ? 'Create your first project above. After that, open it to review the workflow and add the first task.'
+              : 'Create your first project above. Sections and statuses are initialized automatically.'
+          }
         />
       )}
     </div>

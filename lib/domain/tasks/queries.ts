@@ -47,6 +47,16 @@ export type MyTasksGroups = {
   overdue: TaskWithRelations[];
 };
 
+export type MyTasksQuickFilter = 'waiting' | 'due-this-week' | 'unassigned';
+
+export type GetMyTasksInput = {
+  userId: string;
+  projectIds: string[];
+  projectId?: string | null;
+  statusIds?: string[];
+  quickFilter?: MyTasksQuickFilter | null;
+};
+
 export async function getProjectTasks(
   supabase: AppSupabaseClient,
   projectId: string
@@ -99,9 +109,18 @@ export async function getProjectTasks(
 
 export async function getMyTasks(
   supabase: AppSupabaseClient,
-  userId: string
+  input: GetMyTasksInput
 ): Promise<MyTasksGroups> {
-  const { data, error } = await supabase
+  const projectIds = input.projectId ? [input.projectId] : input.projectIds;
+  if (!projectIds.length) {
+    return {
+      today: [],
+      upcoming: {},
+      overdue: []
+    };
+  }
+
+  const taskQuery = supabase
     .from('tasks')
     .select(
       `
@@ -137,9 +156,17 @@ export async function getMyTasks(
       )
     `
     )
-    .eq('assignee_id', userId)
+    .in('project_id', projectIds)
     .is('parent_task_id', null)
     .order('due_at', { ascending: true, nullsFirst: false });
+
+  if (input.quickFilter === 'unassigned') {
+    taskQuery.is('assignee_id', null);
+  } else {
+    taskQuery.eq('assignee_id', input.userId);
+  }
+
+  const { data, error } = await taskQuery;
 
   if (error) {
     throw error;
@@ -147,7 +174,11 @@ export async function getMyTasks(
 
   const today = startOfDay(new Date());
   const twoWeeks = endOfDay(addDays(today, 14));
-  const normalized = normalizeTaskRows(data ?? []).filter((task) => !task.completed_at);
+  const dueThisWeekEnd =
+    input.quickFilter === 'due-this-week' ? endOfDay(addDays(today, 7)) : null;
+  const normalized = normalizeTaskRows(data ?? [])
+    .filter((task) => !task.completed_at)
+    .filter((task) => !input.statusIds?.length || input.statusIds.includes(task.status_id));
 
   const grouped: MyTasksGroups = {
     today: [],
@@ -157,6 +188,10 @@ export async function getMyTasks(
 
   normalized.forEach((task) => {
     if (!task.due_at) {
+      if (input.quickFilter === 'due-this-week') {
+        return;
+      }
+
       if (task.is_today) {
         grouped.today.push(task);
       }
@@ -165,6 +200,10 @@ export async function getMyTasks(
     }
 
     const dueDate = new Date(task.due_at);
+
+    if (dueThisWeekEnd && !isWithinInterval(dueDate, { start: today, end: dueThisWeekEnd })) {
+      return;
+    }
 
     if (dueDate < today) {
       grouped.overdue.push(task);

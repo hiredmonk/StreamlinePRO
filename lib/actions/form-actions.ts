@@ -9,20 +9,30 @@ import {
   reorderProjectStatusesAction,
   updateProjectStatusAction
 } from '@/lib/actions/project-actions';
+import { saveProjectTemplateAction } from '@/lib/actions/project-actions';
+import {
+  cancelWorkspaceInviteAction,
+  createWorkspaceInviteAction,
+  removeWorkspaceMemberAction,
+  updateWorkspaceMemberRoleAction
+} from '@/lib/actions/workspace-actions';
 import {
   addCommentAction,
   completeTaskAction,
+  createFollowUpTaskAction,
   createTaskAction,
   moveTaskAction,
   updateTaskAction,
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
-import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
 import {
-  inviteWorkspaceMemberAction,
-  removeWorkspaceMemberAction,
-  updateWorkspaceMemberRoleAction
-} from '@/lib/actions/member-actions';
+  createTaskRecurrenceAction,
+  updateTaskRecurrenceAction,
+  pauseTaskRecurrenceAction,
+  resumeTaskRecurrenceAction,
+  clearTaskRecurrenceAction
+} from '@/lib/actions/recurrence-actions';
+import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
 
 export async function createWorkspaceFromForm(formData: FormData) {
   const result = await createWorkspaceAction({
@@ -34,10 +44,16 @@ export async function createWorkspaceFromForm(formData: FormData) {
     throw new Error(result.error);
   }
 
-  redirect('/projects');
+  const redirectTo =
+    String(formData.get('redirectTo') ?? 'workspace-detail') === 'workspace-directory'
+      ? '/projects'
+      : `/projects?workspace=${result.data.workspaceId}`;
+
+  redirect(redirectTo);
 }
 
 export async function createProjectFromForm(formData: FormData) {
+  const templateId = String(formData.get('templateId') ?? '') || null;
   const result = await createProjectAction({
     workspaceId: String(formData.get('workspaceId') ?? ''),
     name: String(formData.get('name') ?? ''),
@@ -45,7 +61,8 @@ export async function createProjectFromForm(formData: FormData) {
     privacy:
       String(formData.get('privacy') ?? 'workspace_visible') === 'private'
         ? 'private'
-        : 'workspace_visible'
+        : 'workspace_visible',
+    templateId
   });
 
   if (!result.ok) {
@@ -53,6 +70,64 @@ export async function createProjectFromForm(formData: FormData) {
   }
 
   redirect(`/projects/${result.data.projectId}`);
+}
+
+export async function createProjectTemplateFromForm(formData: FormData) {
+  const result = await saveProjectTemplateAction({
+    projectId: String(formData.get('projectId') ?? ''),
+    name: String(formData.get('name') ?? ''),
+    description: String(formData.get('description') ?? '') || undefined,
+    includeTasks: formData.get('includeTasks') === 'on'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function createWorkspaceInviteFromForm(formData: FormData) {
+  const result = await createWorkspaceInviteAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function cancelWorkspaceInviteFromForm(formData: FormData) {
+  const result = await cancelWorkspaceInviteAction({
+    inviteId: String(formData.get('inviteId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateWorkspaceMemberRoleFromForm(formData: FormData) {
+  const result = await updateWorkspaceMemberRoleAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    userId: String(formData.get('userId') ?? ''),
+    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function removeWorkspaceMemberFromForm(formData: FormData) {
+  const result = await removeWorkspaceMemberAction({
+    workspaceId: String(formData.get('workspaceId') ?? ''),
+    userId: String(formData.get('userId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function createProjectStatusFromForm(formData: FormData) {
@@ -123,7 +198,7 @@ export async function createTaskFromForm(formData: FormData) {
     statusId: statusValue === null ? undefined : String(statusValue) || undefined,
     title: String(formData.get('title') ?? ''),
     description: String(formData.get('description') ?? '') || undefined,
-    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || undefined,
+    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || null,
     dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
     dueTimezone: String(formData.get('dueTimezone') ?? '') || null,
     priority: parsePriority(formData.get('priority')),
@@ -146,7 +221,10 @@ export async function updateTaskFromForm(formData: FormData) {
     id: String(formData.get('id') ?? ''),
     title: String(formData.get('title') ?? '') || undefined,
     description: String(formData.get('description') ?? '') || undefined,
-    assigneeId: String(formData.get('assigneeId') ?? '') || undefined,
+    assigneeId:
+      formData.get('assigneeId') === null
+        ? undefined
+        : String(formData.get('assigneeId') ?? '') || null,
     dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
     dueTimezone:
       dueTimezoneValue === null ? undefined : String(dueTimezoneValue) || null,
@@ -169,8 +247,7 @@ export async function moveTaskFromForm(formData: FormData) {
   const result = await moveTaskAction({
     id: String(formData.get('id') ?? ''),
     statusId: String(formData.get('statusId') ?? ''),
-    sectionId: String(formData.get('sectionId') ?? '') || null,
-    sortOrder: Number(formData.get('sortOrder') ?? 1)
+    sectionId: String(formData.get('sectionId') ?? '') || null
   });
 
   if (!result.ok) {
@@ -185,6 +262,38 @@ export async function completeTaskFromForm(formData: FormData) {
 
   if (!result.ok) {
     throw new Error(result.error);
+  }
+
+  const returnTo = String(formData.get('returnTo') ?? '');
+  if (returnTo) {
+    const url = new URL(returnTo, 'http://streamlinepro.local');
+    if (result.data.recurringNextTaskId) {
+      url.searchParams.set('recurring', '1');
+    }
+    redirect(buildSafeReturnPath(url));
+  }
+}
+
+export async function createFollowUpTaskFromForm(formData: FormData) {
+  const dueAtLocal = String(formData.get('dueAtLocal') ?? '');
+  const assigneeValue = formData.get('assigneeId');
+
+  const result = await createFollowUpTaskAction({
+    sourceTaskId: String(formData.get('sourceTaskId') ?? ''),
+    title: String(formData.get('title') ?? ''),
+    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || null,
+    priority: parsePriority(formData.get('priority')),
+    dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
+    dueTimezone: String(formData.get('dueTimezone') ?? '') || null
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  const returnTo = String(formData.get('returnTo') ?? '');
+  if (returnTo) {
+    redirect(buildSafeReturnPath(new URL(returnTo, 'http://streamlinepro.local')));
   }
 }
 
@@ -225,12 +334,11 @@ export async function markNotificationReadFromForm(formData: FormData) {
   }
 }
 
-export async function inviteWorkspaceMemberFromForm(formData: FormData) {
-  const result = await inviteWorkspaceMemberAction({
-    workspaceId: String(formData.get('workspaceId') ?? ''),
-    email: String(formData.get('email') ?? ''),
-    role: String(formData.get('role') ?? 'member') === 'admin' ? 'admin' : 'member',
-    invitedByUserId: String(formData.get('invitedByUserId') ?? '')
+export async function createTaskRecurrenceFromForm(formData: FormData) {
+  const result = await createTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    interval: Number(formData.get('interval') ?? 1)
   });
 
   if (!result.ok) {
@@ -238,12 +346,12 @@ export async function inviteWorkspaceMemberFromForm(formData: FormData) {
   }
 }
 
-export async function updateWorkspaceMemberRoleFromForm(formData: FormData) {
-  const result = await updateWorkspaceMemberRoleAction({
-    workspaceId: String(formData.get('workspaceId') ?? ''),
-    memberUserId: String(formData.get('memberUserId') ?? ''),
-    nextRole: String(formData.get('nextRole') ?? 'member') === 'admin' ? 'admin' : 'member',
-    actorUserId: String(formData.get('actorUserId') ?? '')
+export async function updateTaskRecurrenceFromForm(formData: FormData) {
+  const result = await updateTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    interval: Number(formData.get('interval') ?? 1)
   });
 
   if (!result.ok) {
@@ -251,17 +359,41 @@ export async function updateWorkspaceMemberRoleFromForm(formData: FormData) {
   }
 }
 
-export async function removeWorkspaceMemberFromForm(formData: FormData) {
-  const result = await removeWorkspaceMemberAction({
-    workspaceId: String(formData.get('workspaceId') ?? ''),
-    memberUserId: String(formData.get('memberUserId') ?? ''),
-    actorUserId: String(formData.get('actorUserId') ?? ''),
-    reason: String(formData.get('reason') ?? '') || undefined
+export async function pauseTaskRecurrenceFromForm(formData: FormData) {
+  const result = await pauseTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
   });
 
   if (!result.ok) {
     throw new Error(result.error);
   }
+}
+
+export async function resumeTaskRecurrenceFromForm(formData: FormData) {
+  const result = await resumeTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function clearTaskRecurrenceFromForm(formData: FormData) {
+  const result = await clearTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+function buildSafeReturnPath(url: URL) {
+  return `${url.pathname}${url.search}`;
 }
 
 function parsePriority(value: FormDataEntryValue | null) {

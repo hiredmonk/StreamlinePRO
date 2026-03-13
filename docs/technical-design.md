@@ -24,16 +24,19 @@ StreamlinePRO is an Asana-style web application optimized for fast task operatio
 ### 3.1 Layers
 1. Presentation layer (`app/*`, `app/components/*`)
 - Server components for data-rich screens
-- Client components only where needed (board drag/drop)
+- Page components stay thin and consume reusable loaders from `lib/page-loaders/*`
+- Client components only where needed, with hooks reserved for client-owned interaction state
 - Drawer-based detail context through query params (`?task=<id>`)
 
 2. Application layer (`lib/actions/*`)
 - Server actions as default mutation entrypoint
 - Route handlers (`app/api/*`) for explicit HTTP access
+- Page loaders assemble authenticated page-level view models without pushing server orchestration into React hooks
 - Input validation by Zod before persistence
 
 3. Domain/query layer (`lib/domain/*`)
 - Project, task, inbox query abstractions
+- Presenter helpers in `lib/view-models/*` handle pure display derivations such as row metadata and notification labels
 - Recurrence logic isolated in reusable domain helper
 
 4. Data/security layer (`db/migrations/*`)
@@ -106,6 +109,8 @@ Core rules:
 ## 7. Performance and UX decisions
 - Optimistic board movement in client state before mutation result
 - Single-query grouped fetches for statuses/sections by project list
+- Shared page loaders remove duplicated task-drawer and search-result assembly across routes
+- Hooks are intentionally limited to client behavior so server-rendered pages do not pay for unnecessary client conversion
 - Drawer context avoids full-page transitions
 - Database indexes support due-date queries, assignee queries, and title search
 
