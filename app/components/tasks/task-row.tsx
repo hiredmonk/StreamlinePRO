@@ -17,6 +17,7 @@ type TaskRowProps = {
     initials: string;
   }>;
   drawerHref: string;
+  completionReturnTo?: string;
 };
 
 export function TaskRow({
@@ -24,7 +25,8 @@ export function TaskRow({
   statuses,
   sections = [],
   assignees = [],
-  drawerHref
+  drawerHref,
+  completionReturnTo
 }: TaskRowProps) {
   const { dueLabel, isOverdue, relativeDueLabel, sectionLabel } = getTaskRowMeta(task);
   const currentAssignee = assignees.find((assignee) => assignee.userId === task.assignee_id) ?? null;
@@ -73,6 +75,7 @@ export function TaskRow({
       <div className="grid gap-2 md:grid-cols-[auto_1fr]">
         <form action={completeTaskFromForm}>
           <input type="hidden" name="id" value={task.id} />
+          {completionReturnTo ? <input type="hidden" name="returnTo" value={completionReturnTo} /> : null}
           <button
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#b8ccb4] bg-[#ebf7ec] px-3 text-sm font-semibold text-[#1f6a39] transition hover:bg-[#dff2e2]"
             type="submit"
@@ -111,19 +114,22 @@ export function TaskRow({
             ))}
           </select>
 
-          <select
-            name="assigneeId"
-            defaultValue={task.assignee_id ?? ''}
-            className="h-10 rounded-xl border border-[#d8ceb6] bg-white px-3 text-sm"
-          >
-            <option value="">Unassigned</option>
-            {hasFormerAssignee ? <option value={task.assignee_id ?? ''}>Former member</option> : null}
-            {assignees.map((assignee) => (
-              <option key={assignee.userId} value={assignee.userId}>
-                {assignee.displayName}
-              </option>
-            ))}
-          </select>
+          <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6b6f69]">
+            Owner
+            <select
+              name="assigneeId"
+              defaultValue={task.assignee_id ?? ''}
+              className="h-10 rounded-xl border border-[#d8ceb6] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#2d332e]"
+            >
+              <option value="">Unassigned</option>
+              {hasFormerAssignee ? <option value={task.assignee_id ?? ''}>Former member</option> : null}
+              {assignees.map((assignee) => (
+                <option key={assignee.userId} value={assignee.userId}>
+                  {assignee.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <input
             type="datetime-local"

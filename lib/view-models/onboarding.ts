@@ -121,7 +121,7 @@ export function buildProjectSetupGuide(taskCount: number): ProjectSetupGuide | n
 
   return {
     title: 'Set up this project in two quick steps',
-    description: 'Review the default status lanes, then add the first task without leaving the page.',
+    description: 'Review the workflow lanes first, then add and assign the first task without leaving the page.',
     actions: [
       {
         label: 'Review status lanes',
@@ -133,8 +133,8 @@ export function buildProjectSetupGuide(taskCount: number): ProjectSetupGuide | n
       }
     ],
     tips: [
-      'Keep the default lanes if they already fit. You can rename or reorder them later.',
-      'Create one real task first so the team can validate status flow before adding more.'
+      'Use Waiting for blocked or external-dependency work so stuck tasks do not stay mixed into active execution.',
+      'Done lanes are the completion targets, and you can assign the first task directly from the row, board card, or drawer.'
     ]
   };
 }

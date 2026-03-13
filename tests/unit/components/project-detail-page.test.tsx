@@ -54,14 +54,16 @@ describe('ProjectDetailPage', () => {
       },
       setupGuide: {
         title: 'Set up this project in two quick steps',
-        description: 'Review the default status lanes, then add the first task without leaving the page.',
+        description: 'Review the workflow lanes first, then add and assign the first task without leaving the page.',
         actions: [
           { label: 'Review status lanes', href: '#workflow-status-manager' },
           { label: 'Add first task', href: '#quick-add-form' }
         ],
         tips: []
       },
-      selectedTaskPanel: null
+      selectedTaskPanel: null,
+      selectedTaskMode: 'details',
+      recurringNotice: null
     } as never);
 
     const { container } = render(

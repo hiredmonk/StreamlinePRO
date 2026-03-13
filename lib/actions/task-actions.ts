@@ -6,7 +6,14 @@ import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
 import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { getNextDueDate, parseRecurrencePattern } from '@/lib/domain/tasks/recurrence';
-import { createTaskSchema, updateTaskSchema, completeTaskSchema, moveTaskSchema, createCommentSchema } from '@/lib/validators/task';
+import {
+  createCommentSchema,
+  createFollowUpTaskSchema,
+  createTaskSchema,
+  updateTaskSchema,
+  completeTaskSchema,
+  moveTaskSchema
+} from '@/lib/validators/task';
 import { getServerEnv } from '@/lib/env';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
@@ -281,7 +288,9 @@ export async function moveTaskAction(input: {
   }
 }
 
-export async function completeTaskAction(input: { id: string }): Promise<ActionResult<{ taskId: string }>> {
+export async function completeTaskAction(input: {
+  id: string;
+}): Promise<ActionResult<{ taskId: string; recurringNextTaskId?: string }>> {
   try {
     const parsed = completeTaskSchema.parse(input);
     const { user, supabase } = await requireUser();
@@ -331,17 +340,84 @@ export async function completeTaskAction(input: { id: string }): Promise<ActionR
       payload: { completedAt }
     });
 
+    let recurringNextTaskId: string | undefined;
     if (task.recurrence_id) {
-      await createNextTaskFromRecurrence(supabase, {
+      const nextTask = await createNextTaskFromRecurrence(supabase, {
         completedTaskId: task.id,
         recurrenceId: task.recurrence_id,
         actorId: user.id
       });
+      recurringNextTaskId = nextTask?.id;
     }
 
     revalidateTaskPaths(task.project_id);
 
-    return { ok: true, data: { taskId: task.id } };
+    return {
+      ok: true,
+      data: recurringNextTaskId
+        ? {
+            taskId: task.id,
+            recurringNextTaskId
+          }
+        : {
+            taskId: task.id
+          }
+    };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function createFollowUpTaskAction(input: {
+  sourceTaskId: string;
+  title: string;
+  assigneeId?: string | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+  dueAt?: string | null;
+  dueTimezone?: string | null;
+}): Promise<ActionResult<{ taskId: string; sourceTaskId: string }>> {
+  try {
+    const parsed = createFollowUpTaskSchema.parse(input);
+    const { user, supabase } = await requireUser();
+    const { data: sourceTask, error } = await supabase
+      .from('tasks')
+      .select('id, project_id, section_id, assignee_id, priority')
+      .eq('id', parsed.sourceTaskId)
+      .maybeSingle();
+
+    if (error || !sourceTask) {
+      throw error ?? new Error('Source task not found.');
+    }
+
+    const result = await createTaskAction({
+      projectId: sourceTask.project_id,
+      sectionId: sourceTask.section_id,
+      title: parsed.title,
+      assigneeId:
+        parsed.assigneeId === undefined ? sourceTask.assignee_id : parsed.assigneeId,
+      priority: parsed.priority === undefined ? sourceTask.priority : parsed.priority,
+      dueAt: parsed.dueAt ?? null,
+      dueTimezone: parsed.dueTimezone ?? null
+    });
+
+    if (!result.ok) {
+      return result;
+    }
+
+    await logActivity(supabase, {
+      taskId: parsed.sourceTaskId,
+      actorId: user.id,
+      eventType: 'follow_up_created',
+      payload: { followUpTaskId: result.data.taskId }
+    });
+
+    return {
+      ok: true,
+      data: {
+        taskId: result.data.taskId,
+        sourceTaskId: parsed.sourceTaskId
+      }
+    };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
@@ -524,7 +600,7 @@ async function createNextTaskFromRecurrence(
     recurrenceId: string;
     actorId: string;
   }
-) {
+): Promise<{ id: string } | null> {
   const { data: completedTask, error: completedTaskError } = await supabase
     .from('tasks')
     .select(
@@ -544,12 +620,12 @@ async function createNextTaskFromRecurrence(
     .maybeSingle();
 
   if (recurrenceError || !recurrence || recurrence.is_paused) {
-    return;
+    return null;
   }
 
   const pattern = parseRecurrencePattern(recurrence.pattern_json);
   if (!pattern) {
-    return;
+    return null;
   }
 
   const nextDueAt = getNextDueDate(new Date(completedTask.due_at), pattern).toISOString();
@@ -610,6 +686,10 @@ async function createNextTaskFromRecurrence(
     eventType: 'recurrence_generated',
     payload: { sourceTaskId: input.completedTaskId }
   });
+
+  return {
+    id: nextTask.id
+  };
 }
 
 async function getWorkspaceIdByProjectId(

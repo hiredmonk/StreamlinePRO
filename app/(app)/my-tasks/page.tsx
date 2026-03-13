@@ -1,14 +1,15 @@
 import { format } from 'date-fns';
 import { EmptyState } from '@/app/components/ui/empty-state';
+import { MyTasksFilters } from '@/app/components/tasks/my-tasks-filters';
 import { QuickAddForm } from '@/app/components/tasks/quick-add-form';
 import { TaskRow } from '@/app/components/tasks/task-row';
 import { TaskDrawerPanel } from '@/app/components/tasks/task-drawer-panel';
-import { loadMyTasksPageData } from '@/lib/page-loaders/my-tasks-page';
+import { loadMyTasksPageData, type MyTasksSearch } from '@/lib/page-loaders/my-tasks-page';
 
 export default async function MyTasksPage({
   searchParams
 }: {
-  searchParams: Promise<{ task?: string }>;
+  searchParams: Promise<MyTasksSearch>;
 }) {
   const params = await searchParams;
   const pageData = await loadMyTasksPageData(params);
@@ -25,7 +26,22 @@ export default async function MyTasksPage({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-4">
-        <QuickAddForm projects={pageData.quickAddProjects} />
+        <MyTasksFilters filters={pageData.filterState} />
+
+        {pageData.quickAddProjects.length ? (
+          <QuickAddForm
+            projects={pageData.quickAddProjects}
+            assigneesByProject={pageData.assigneesByProject}
+            currentUserId={pageData.currentUserId}
+            defaultAssigneeMode="self-when-allowed"
+            preselectedProjectId={pageData.filterState.selectedProjectId ?? undefined}
+          />
+        ) : (
+          <EmptyState
+            title="No projects in this workspace"
+            description="Open Projects to create one before adding work here."
+          />
+        )}
 
         {!pageData.hasAnyTask ? (
           <EmptyState
@@ -46,7 +62,13 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={`/my-tasks?task=${task.id}`}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
+                completionReturnTo={buildMyTasksHref(params, {
+                  task: task.id,
+                  completed: '1'
+                })}
               />
             ))}
           </section>
@@ -64,7 +86,13 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={`/my-tasks?task=${task.id}`}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
+                completionReturnTo={buildMyTasksHref(params, {
+                  task: task.id,
+                  completed: '1'
+                })}
               />
             ))}
           </section>
@@ -82,7 +110,13 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={`/my-tasks?task=${task.id}`}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
+                completionReturnTo={buildMyTasksHref(params, {
+                  task: task.id,
+                  completed: '1'
+                })}
               />
             ))}
           </section>
@@ -99,9 +133,55 @@ export default async function MyTasksPage({
           comments={pageData.selectedTaskPanel.comments}
           attachments={pageData.selectedTaskPanel.attachments}
           activity={pageData.selectedTaskPanel.activity}
-          closeHref="/my-tasks"
+          completionReturnTo={buildMyTasksHref(params, {
+            task: pageData.selectedTaskPanel.task.id,
+            completed: '1'
+          })}
+          closeHref={buildMyTasksHref(params, {
+            task: null,
+            completed: null,
+            recurring: null
+          })}
+          mode={pageData.selectedTaskMode}
+          recurringNotice={pageData.recurringNotice}
         />
       ) : null}
     </div>
   );
+}
+
+function buildMyTasksHref(
+  current: MyTasksSearch,
+  overrides: Partial<Record<keyof MyTasksSearch, string | null>>
+) {
+  const next = new URLSearchParams();
+  const baseEntries: Array<[keyof MyTasksSearch, string | undefined]> = [
+    ['workspace', current.workspace],
+    ['project', current.project],
+    ['status', current.status],
+    ['quick', current.quick],
+    ['task', current.task]
+  ];
+
+  baseEntries.forEach(([key, value]) => {
+    const override = overrides[key];
+    const finalValue = override === undefined ? value : override;
+    if (finalValue) {
+      next.set(key, finalValue);
+    }
+  });
+
+  const completionEntries: Array<[keyof MyTasksSearch, string | null | undefined]> = [
+    ['completed', overrides.completed],
+    ['recurring', overrides.recurring]
+  ];
+
+  completionEntries.forEach(([key, value]) => {
+    if (value) {
+      next.set(key, value);
+    }
+  });
+
+  const query = next.toString();
+  return query ? `/my-tasks?${query}` : '/my-tasks';
 }

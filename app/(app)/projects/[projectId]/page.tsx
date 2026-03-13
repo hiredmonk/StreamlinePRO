@@ -13,7 +13,7 @@ export default async function ProjectDetailPage({
   searchParams
 }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ task?: string }>;
+  searchParams: Promise<{ task?: string; completed?: string; recurring?: string }>;
 }) {
   const routeParams = await params;
   const query = await searchParams;
@@ -52,7 +52,9 @@ export default async function ProjectDetailPage({
               name: pageData.project.name
             }
           ]}
+          assigneesByProject={{ [pageData.project.id]: pageData.assignees }}
           preselectedProjectId={pageData.project.id}
+          projectLocked
         />
 
         <WorkflowStatusManager
@@ -63,9 +65,16 @@ export default async function ProjectDetailPage({
 
         {pageData.tasks.length ? (
           <section className="space-y-2">
-            <h2 className="text-lg font-semibold text-[#262b26]" style={{ fontFamily: 'var(--font-display)' }}>
-              List View
-            </h2>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-[#262b26]" style={{ fontFamily: 'var(--font-display)' }}>
+                  List View
+                </h2>
+                <p className="text-sm text-[#686c67]">
+                  Managers can assign owners directly from rows, board cards, or the task drawer.
+                </p>
+              </div>
+            </div>
             {pageData.tasks.map((task) => (
               <TaskRow
                 key={task.id}
@@ -74,6 +83,7 @@ export default async function ProjectDetailPage({
                 sections={pageData.workflowOptions.taskSections}
                 assignees={pageData.assignees}
                 drawerHref={`/projects/${pageData.project.id}?task=${task.id}`}
+                completionReturnTo={`/projects/${pageData.project.id}?task=${task.id}&completed=1`}
               />
             ))}
           </section>
@@ -104,6 +114,9 @@ export default async function ProjectDetailPage({
           attachments={pageData.selectedTaskPanel.attachments}
           activity={pageData.selectedTaskPanel.activity}
           closeHref={`/projects/${pageData.project.id}`}
+          completionReturnTo={`/projects/${pageData.project.id}?task=${pageData.selectedTaskPanel.task.id}&completed=1`}
+          mode={pageData.selectedTaskMode}
+          recurringNotice={pageData.recurringNotice}
         />
       ) : null}
     </div>

@@ -39,6 +39,18 @@ export const completeTaskSchema = z.object({
   id: z.uuid()
 });
 
+export const createFollowUpTaskSchema = z.object({
+  sourceTaskId: z.uuid(),
+  title: z
+    .string()
+    .min(1, 'Task title is required.')
+    .max(160, 'Task title should stay below 160 characters.'),
+  assigneeId: z.uuid().nullable().optional(),
+  priority: taskPrioritySchema.nullable().optional(),
+  dueAt: z.string().datetime().nullable().optional(),
+  dueTimezone: z.string().nullable().optional()
+});
+
 export const moveTaskSchema = z.object({
   id: z.uuid(),
   statusId: z.uuid(),

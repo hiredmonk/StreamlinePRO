@@ -23,7 +23,7 @@ describe('WorkflowStatusManager', () => {
     );
 
     expect(screen.getByText('Workflow settings')).toBeInTheDocument();
-    expect(screen.getByText(/Done lanes are completion targets/i)).toBeInTheDocument();
+    expect(screen.getByText(/Use Waiting for blocked or external work/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Add status (e.g. Blocked)')).toBeRequired();
     expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Delete lane' })).toHaveLength(2);

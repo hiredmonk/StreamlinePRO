@@ -73,9 +73,12 @@ export function BoardView({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[#232724]" style={{ fontFamily: 'var(--font-display)' }}>
-          Board View
-        </h3>
+        <div>
+          <h3 className="text-lg font-semibold text-[#232724]" style={{ fontFamily: 'var(--font-display)' }}>
+            Board View
+          </h3>
+          <p className="text-sm text-[#686c67]">Reassign ownership from any card without leaving the board.</p>
+        </div>
         <p className="text-xs uppercase tracking-[0.16em] text-[#6b6c67]">
           Manage columns in Workflow settings | {projectId.slice(0, 8)}{' '}
           {isPending || isAssigneePending ? '| syncing' : ''}
@@ -138,24 +141,27 @@ export function BoardView({
                           {currentAssignee?.displayName ?? (hasFormerAssignee ? 'Former member' : 'Unassigned')}
                         </span>
                       </div>
-                      <select
-                        aria-label={`Assignee for ${task.title}`}
-                        value={assigneeOverrides[task.id] ?? task.assignee_id ?? ''}
-                        onChange={(event) =>
-                          saveAssignee(task.id, task.assignee_id, event.currentTarget.value || null)
-                        }
-                        className="mt-3 h-9 w-full rounded-lg border border-[#d8ceb6] bg-[#fffdf8] px-3 text-sm"
-                      >
-                        <option value="">Unassigned</option>
-                        {hasFormerAssignee ? (
-                          <option value={task.assignee_id ?? ''}>Former member</option>
-                        ) : null}
-                        {assignees.map((assignee) => (
-                          <option key={assignee.userId} value={assignee.userId}>
-                            {assignee.displayName}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="mt-3 grid gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6b6f69]">
+                        Owner
+                        <select
+                          aria-label={`Assignee for ${task.title}`}
+                          value={assigneeOverrides[task.id] ?? task.assignee_id ?? ''}
+                          onChange={(event) =>
+                            saveAssignee(task.id, task.assignee_id, event.currentTarget.value || null)
+                          }
+                          className="h-9 w-full rounded-lg border border-[#d8ceb6] bg-[#fffdf8] px-3 text-sm font-normal normal-case tracking-normal text-[#2d332e]"
+                        >
+                          <option value="">Unassigned</option>
+                          {hasFormerAssignee ? (
+                            <option value={task.assignee_id ?? ''}>Former member</option>
+                          ) : null}
+                          {assignees.map((assignee) => (
+                            <option key={assignee.userId} value={assignee.userId}>
+                              {assignee.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </li>
                   );
                 })}

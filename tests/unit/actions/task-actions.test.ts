@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommentAction,
   completeTaskAction,
+  createFollowUpTaskAction,
   createTaskAction,
   moveTaskAction,
   updateTaskAction,
@@ -363,7 +364,10 @@ describe('task actions', () => {
 
     const result = await completeTaskAction({ id: ids.task });
 
-    expect(result).toEqual({ ok: true, data: { taskId: ids.task } });
+    expect(result).toEqual({
+      ok: true,
+      data: { taskId: ids.task, recurringNextTaskId: ids.nextTask }
+    });
 
     const taskActivityCalls = history
       .filter((entry) => entry.table === 'task_activity')
@@ -376,6 +380,71 @@ describe('task actions', () => {
         event_type: 'recurrence_generated'
       })
     );
+  });
+
+  it('creates a follow-up task and logs it on the source task', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            section_id: ids.section,
+            assignee_id: ids.userB,
+            priority: 'high'
+          },
+          error: null
+        }
+      },
+      { table: 'project_statuses', response: { data: { id: ids.statusTodo }, error: null } },
+      { table: 'tasks', response: { data: [{ sort_order: 4 }], error: null } },
+      { table: 'tasks', response: { data: null, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } },
+      { table: 'projects', response: { data: { workspace_id: ids.workspace }, error: null } },
+      { table: 'task_activity', response: { data: null, error: null } }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await createFollowUpTaskAction({
+      sourceTaskId: ids.task,
+      title: 'Call vendor tomorrow'
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        taskId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        ),
+        sourceTaskId: ids.task
+      }
+    });
+
+    const sourceActivityInsert = history
+      .filter((entry) => entry.table === 'task_activity')
+      .at(-1)?.chain.insert.mock.calls[0]?.[0];
+
+    expect(sourceActivityInsert).toEqual(
+      expect.objectContaining({
+        task_id: ids.task,
+        event_type: 'follow_up_created'
+      })
+    );
+  });
+
+  it('rejects invalid follow-up input before querying', async () => {
+    const result = await createFollowUpTaskAction({
+      sourceTaskId: 'not-a-uuid',
+      title: ''
+    });
+
+    expect(result.ok).toBe(false);
+    expect(vi.mocked(requireUser)).not.toHaveBeenCalled();
   });
 
   it('adds comment and emits mention notification', async () => {

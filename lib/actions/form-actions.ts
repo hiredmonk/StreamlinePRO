@@ -18,6 +18,7 @@ import {
 import {
   addCommentAction,
   completeTaskAction,
+  createFollowUpTaskAction,
   createTaskAction,
   moveTaskAction,
   updateTaskAction,
@@ -240,6 +241,38 @@ export async function completeTaskFromForm(formData: FormData) {
   if (!result.ok) {
     throw new Error(result.error);
   }
+
+  const returnTo = String(formData.get('returnTo') ?? '');
+  if (returnTo) {
+    const url = new URL(returnTo, 'http://streamlinepro.local');
+    if (result.data.recurringNextTaskId) {
+      url.searchParams.set('recurring', '1');
+    }
+    redirect(buildSafeReturnPath(url));
+  }
+}
+
+export async function createFollowUpTaskFromForm(formData: FormData) {
+  const dueAtLocal = String(formData.get('dueAtLocal') ?? '');
+  const assigneeValue = formData.get('assigneeId');
+
+  const result = await createFollowUpTaskAction({
+    sourceTaskId: String(formData.get('sourceTaskId') ?? ''),
+    title: String(formData.get('title') ?? ''),
+    assigneeId: assigneeValue === null ? undefined : String(assigneeValue) || null,
+    priority: parsePriority(formData.get('priority')),
+    dueAt: dueAtLocal ? new Date(dueAtLocal).toISOString() : null,
+    dueTimezone: String(formData.get('dueTimezone') ?? '') || null
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  const returnTo = String(formData.get('returnTo') ?? '');
+  if (returnTo) {
+    redirect(buildSafeReturnPath(new URL(returnTo, 'http://streamlinepro.local')));
+  }
 }
 
 export async function addCommentFromForm(formData: FormData) {
@@ -277,6 +310,10 @@ export async function markNotificationReadFromForm(formData: FormData) {
   if (!result.ok) {
     throw new Error(result.error);
   }
+}
+
+function buildSafeReturnPath(url: URL) {
+  return `${url.pathname}${url.search}`;
 }
 
 function parsePriority(value: FormDataEntryValue | null) {

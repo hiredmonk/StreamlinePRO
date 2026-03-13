@@ -17,14 +17,14 @@ describe('ProjectSetupGuidePanel', () => {
       <ProjectSetupGuidePanel
         guide={{
           title: 'Set up this project in two quick steps',
-          description: 'Review the default status lanes, then add the first task without leaving the page.',
+          description: 'Review the workflow lanes first, then add and assign the first task without leaving the page.',
           actions: [
             { label: 'Review status lanes', href: '#workflow-status-manager' },
             { label: 'Add first task', href: '#quick-add-form' }
           ],
           tips: [
-            'Keep the default lanes if they already fit. You can rename or reorder them later.',
-            'Create one real task first so the team can validate status flow before adding more.'
+            'Use Waiting for blocked or external-dependency work so stuck tasks do not stay mixed into active execution.',
+            'Done lanes are the completion targets, and you can assign the first task directly from the row, board card, or drawer.'
           ]
         }}
       />
@@ -39,6 +39,6 @@ describe('ProjectSetupGuidePanel', () => {
       'href',
       '#quick-add-form'
     );
-    expect(screen.getByText('Create one real task first so the team can validate status flow before adding more.')).toBeInTheDocument();
+    expect(screen.getByText(/assign the first task directly from the row, board card, or drawer/i)).toBeInTheDocument();
   });
 });
