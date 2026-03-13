@@ -20,6 +20,8 @@ import type {
 } from '@/lib/contracts/member-management';
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
 
+type QueryableSupabaseClient = Pick<AppSupabaseClient, 'from'>;
+
 type WorkspaceMemberRow = {
   workspace_id: string;
   user_id: string;
@@ -178,17 +180,10 @@ export const removeWorkspaceMemberAction: RemoveWorkspaceMemberAction = async (i
       );
     }
 
-    const workspaceProjectIds = await getWorkspaceProjectIds(supabase, parsed.workspaceId);
+    const adminSupabase = createSupabaseAdminClient();
+    const workspaceProjectIds = await getWorkspaceProjectIds(adminSupabase, parsed.workspaceId);
     if (workspaceProjectIds.length) {
-      const { error: projectMemberDeleteError } = await supabase
-        .from('project_members')
-        .delete()
-        .in('project_id', workspaceProjectIds)
-        .eq('user_id', parsed.memberUserId);
-
-      if (projectMemberDeleteError) {
-        throw projectMemberDeleteError;
-      }
+      await removeWorkspaceProjectAccess(adminSupabase, workspaceProjectIds, parsed.memberUserId);
     }
 
     const { error: workspaceMemberDeleteError } = await supabase
@@ -313,7 +308,7 @@ async function assertWorkspaceHasAnotherAdmin(
   }
 }
 
-async function getWorkspaceProjectIds(supabase: AppSupabaseClient, workspaceId: string) {
+async function getWorkspaceProjectIds(supabase: QueryableSupabaseClient, workspaceId: string) {
   const { data, error } = await supabase
     .from('projects')
     .select('id')
@@ -324,6 +319,36 @@ async function getWorkspaceProjectIds(supabase: AppSupabaseClient, workspaceId: 
   }
 
   return (data ?? []).map((project) => project.id);
+}
+
+async function removeWorkspaceProjectAccess(
+  supabase: QueryableSupabaseClient,
+  projectIds: string[],
+  userId: string
+) {
+  const { error: unassignError } = await supabase
+    .from('tasks')
+    .update({
+      assignee_id: null,
+      updated_at: new Date().toISOString()
+    })
+    .in('project_id', projectIds)
+    .eq('assignee_id', userId)
+    .is('completed_at', null);
+
+  if (unassignError) {
+    throw unassignError;
+  }
+
+  const { error: projectMemberDeleteError } = await supabase
+    .from('project_members')
+    .delete()
+    .eq('user_id', userId)
+    .in('project_id', projectIds);
+
+  if (projectMemberDeleteError) {
+    throw projectMemberDeleteError;
+  }
 }
 
 function assertActorMatchesAuthenticatedUser(actorUserId: string, authUserId: string) {

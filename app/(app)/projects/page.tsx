@@ -102,7 +102,7 @@ export default async function ProjectsPage({
     listWorkspaceMembersQuery({
       workspaceId: activeWorkspace.id,
       actorUserId: user.id
-    })
+    }).catch(() => null)
   ]);
 
   return (
@@ -135,11 +135,13 @@ export default async function ProjectsPage({
 
       <CreateProjectForm workspaceId={activeWorkspace.id} />
 
-      <WorkspaceMembersPanel
-        workspace={activeWorkspace}
-        actorUserId={user.id}
-        members={workspaceMembers.members}
-      />
+      {workspaceMembers ? (
+        <WorkspaceMembersPanel
+          workspace={activeWorkspace}
+          actorUserId={user.id}
+          members={workspaceMembers.members}
+        />
+      ) : null}
 
       {projects.length ? (
         <ProjectCardGrid projects={projects} />

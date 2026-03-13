@@ -324,20 +324,25 @@ describe('member actions', () => {
           }
         }
       },
+      { table: 'workspace_members', response: { data: null } }
+    ]);
+
+    const { supabase: adminSupabase, history: adminHistory } = createSupabaseMock([
       {
         table: 'projects',
         response: {
           data: [{ id: 'p1' }, { id: 'p2' }]
         }
       },
-      { table: 'project_members', response: { data: null } },
-      { table: 'workspace_members', response: { data: null } }
+      { table: 'tasks', response: { data: null } },
+      { table: 'project_members', response: { data: null } }
     ]);
 
     vi.mocked(requireUser).mockResolvedValue({
       user: { id: ACTOR_ID } as never,
       supabase: supabase as never
     });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(adminSupabase as never);
 
     const result = await removeWorkspaceMemberAction({
       workspaceId: WORKSPACE_ID,
@@ -346,8 +351,9 @@ describe('member actions', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(history[3]?.chain.delete).toHaveBeenCalled();
-    expect(history[4]?.chain.delete).toHaveBeenCalled();
+    expect(adminHistory[1]?.chain.update).toHaveBeenCalled();
+    expect(adminHistory[2]?.chain.delete).toHaveBeenCalled();
+    expect(history[2]?.chain.delete).toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith('/projects/p1');
     expect(revalidatePath).toHaveBeenCalledWith('/projects/p2');
   });
