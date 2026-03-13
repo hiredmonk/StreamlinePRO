@@ -44,10 +44,10 @@ export type MyTasksSearch = {
   workspace?: string;
   project?: string;
   status?: string;
-  quick?: string;
+  quick?: MyTasksQuickFilter;
   task?: string;
-  completed?: string;
-  recurring?: string;
+  completed?: '1';
+  recurring?: '1';
 };
 
 export type MyTasksFilterState = {

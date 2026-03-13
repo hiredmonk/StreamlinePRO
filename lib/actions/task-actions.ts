@@ -6,7 +6,14 @@ import { requireUser } from '@/lib/auth';
 import { createNotification } from '@/lib/domain/inbox/events';
 import { getProjectAssignmentScope, isAssigneeAllowed } from '@/lib/domain/tasks/assignees';
 import { getNextDueDate, parseRecurrencePattern } from '@/lib/domain/tasks/recurrence';
-import { createTaskSchema, updateTaskSchema, completeTaskSchema, moveTaskSchema, createCommentSchema } from '@/lib/validators/task';
+import {
+  createCommentSchema,
+  createFollowUpTaskSchema,
+  createTaskSchema,
+  updateTaskSchema,
+  completeTaskSchema,
+  moveTaskSchema
+} from '@/lib/validators/task';
 import { getServerEnv } from '@/lib/env';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
@@ -370,11 +377,12 @@ export async function createFollowUpTaskAction(input: {
   dueTimezone?: string | null;
 }): Promise<ActionResult<{ taskId: string; sourceTaskId: string }>> {
   try {
+    const parsed = createFollowUpTaskSchema.parse(input);
     const { user, supabase } = await requireUser();
     const { data: sourceTask, error } = await supabase
       .from('tasks')
       .select('id, project_id, section_id, assignee_id, priority')
-      .eq('id', input.sourceTaskId)
+      .eq('id', parsed.sourceTaskId)
       .maybeSingle();
 
     if (error || !sourceTask) {
@@ -384,12 +392,12 @@ export async function createFollowUpTaskAction(input: {
     const result = await createTaskAction({
       projectId: sourceTask.project_id,
       sectionId: sourceTask.section_id,
-      title: input.title,
+      title: parsed.title,
       assigneeId:
-        input.assigneeId === undefined ? sourceTask.assignee_id : input.assigneeId,
-      priority: input.priority === undefined ? sourceTask.priority : input.priority,
-      dueAt: input.dueAt ?? null,
-      dueTimezone: input.dueTimezone ?? null
+        parsed.assigneeId === undefined ? sourceTask.assignee_id : parsed.assigneeId,
+      priority: parsed.priority === undefined ? sourceTask.priority : parsed.priority,
+      dueAt: parsed.dueAt ?? null,
+      dueTimezone: parsed.dueTimezone ?? null
     });
 
     if (!result.ok) {
@@ -397,7 +405,7 @@ export async function createFollowUpTaskAction(input: {
     }
 
     await logActivity(supabase, {
-      taskId: input.sourceTaskId,
+      taskId: parsed.sourceTaskId,
       actorId: user.id,
       eventType: 'follow_up_created',
       payload: { followUpTaskId: result.data.taskId }
@@ -407,7 +415,7 @@ export async function createFollowUpTaskAction(input: {
       ok: true,
       data: {
         taskId: result.data.taskId,
-        sourceTaskId: input.sourceTaskId
+        sourceTaskId: parsed.sourceTaskId
       }
     };
   } catch (error) {

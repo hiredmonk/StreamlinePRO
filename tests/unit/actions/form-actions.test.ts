@@ -255,6 +255,22 @@ describe('form actions', () => {
     expect(redirect).toHaveBeenCalledWith('/my-tasks');
   });
 
+  it('sanitizes follow-up redirect targets before redirecting', async () => {
+    vi.mocked(createFollowUpTaskAction).mockResolvedValue({
+      ok: true,
+      data: { taskId: 't2', sourceTaskId: 't1' }
+    });
+
+    const followUpForm = new FormData();
+    followUpForm.set('sourceTaskId', '11111111-1111-4111-8111-111111111111');
+    followUpForm.set('title', 'Call vendor tomorrow');
+    followUpForm.set('returnTo', 'https://malicious.example/phish?next=%2Fmy-tasks');
+
+    await createFollowUpTaskFromForm(followUpForm);
+
+    expect(redirect).toHaveBeenCalledWith('/phish?next=%2Fmy-tasks');
+  });
+
   it('forwards project workflow status forms', async () => {
     vi.mocked(createProjectStatusAction).mockResolvedValue({
       ok: true,

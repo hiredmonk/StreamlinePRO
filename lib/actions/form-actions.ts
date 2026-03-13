@@ -248,7 +248,7 @@ export async function completeTaskFromForm(formData: FormData) {
     if (result.data.recurringNextTaskId) {
       url.searchParams.set('recurring', '1');
     }
-    redirect(`${url.pathname}${url.search}`);
+    redirect(buildSafeReturnPath(url));
   }
 }
 
@@ -271,7 +271,7 @@ export async function createFollowUpTaskFromForm(formData: FormData) {
 
   const returnTo = String(formData.get('returnTo') ?? '');
   if (returnTo) {
-    redirect(returnTo);
+    redirect(buildSafeReturnPath(new URL(returnTo, 'http://streamlinepro.local')));
   }
 }
 
@@ -310,6 +310,10 @@ export async function markNotificationReadFromForm(formData: FormData) {
   if (!result.ok) {
     throw new Error(result.error);
   }
+}
+
+function buildSafeReturnPath(url: URL) {
+  return `${url.pathname}${url.search}`;
 }
 
 function parsePriority(value: FormDataEntryValue | null) {

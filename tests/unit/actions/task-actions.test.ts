@@ -437,6 +437,16 @@ describe('task actions', () => {
     );
   });
 
+  it('rejects invalid follow-up input before querying', async () => {
+    const result = await createFollowUpTaskAction({
+      sourceTaskId: 'not-a-uuid',
+      title: ''
+    });
+
+    expect(result.ok).toBe(false);
+    expect(vi.mocked(requireUser)).not.toHaveBeenCalled();
+  });
+
   it('adds comment and emits mention notification', async () => {
     const { supabase } = createSupabaseMock([
       {

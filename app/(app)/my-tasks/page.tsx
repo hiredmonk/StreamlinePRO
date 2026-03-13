@@ -62,7 +62,9 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={buildMyTasksHref(params, { task: task.id })}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
                 completionReturnTo={buildMyTasksHref(params, {
                   task: task.id,
                   completed: '1'
@@ -84,7 +86,9 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={buildMyTasksHref(params, { task: task.id })}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
                 completionReturnTo={buildMyTasksHref(params, {
                   task: task.id,
                   completed: '1'
@@ -106,7 +110,9 @@ export default async function MyTasksPage({
                 statuses={pageData.statusesByProject[task.project_id] ?? []}
                 sections={pageData.sectionsByProject[task.project_id] ?? []}
                 assignees={pageData.assigneesByProject[task.project_id] ?? []}
-                drawerHref={buildMyTasksHref(params, { task: task.id })}
+                drawerHref={buildMyTasksHref(params, {
+                  task: task.id
+                })}
                 completionReturnTo={buildMyTasksHref(params, {
                   task: task.id,
                   completed: '1'
@@ -127,6 +133,10 @@ export default async function MyTasksPage({
           comments={pageData.selectedTaskPanel.comments}
           attachments={pageData.selectedTaskPanel.attachments}
           activity={pageData.selectedTaskPanel.activity}
+          completionReturnTo={buildMyTasksHref(params, {
+            task: pageData.selectedTaskPanel.task.id,
+            completed: '1'
+          })}
           closeHref={buildMyTasksHref(params, {
             task: null,
             completed: null,
@@ -150,9 +160,7 @@ function buildMyTasksHref(
     ['project', current.project],
     ['status', current.status],
     ['quick', current.quick],
-    ['task', current.task],
-    ['completed', current.completed],
-    ['recurring', current.recurring]
+    ['task', current.task]
   ];
 
   baseEntries.forEach(([key, value]) => {
@@ -160,6 +168,17 @@ function buildMyTasksHref(
     const finalValue = override === undefined ? value : override;
     if (finalValue) {
       next.set(key, finalValue);
+    }
+  });
+
+  const completionEntries: Array<[keyof MyTasksSearch, string | null | undefined]> = [
+    ['completed', overrides.completed],
+    ['recurring', overrides.recurring]
+  ];
+
+  completionEntries.forEach(([key, value]) => {
+    if (value) {
+      next.set(key, value);
     }
   });
 

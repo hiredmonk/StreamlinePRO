@@ -19,6 +19,7 @@
   - `quick=waiting|due-this-week|unassigned`
   - `task=<taskId>`
   - `completed=1` when the selected drawer should render the completion state
+  - `recurring=1` when the completion state should show the recurring next-task notice
 - `workspace` defaults to the first accessible workspace when omitted.
 - `project` and `status` must belong to the selected workspace or they are ignored.
 - `task` continues to select the open drawer task on both My Tasks and project detail pages.
@@ -33,14 +34,15 @@ type MyTasksSearch = {
   status?: string;
   quick?: MyTasksQuickFilter;
   task?: string;
-  completed?: string;
+  completed?: '1';
+  recurring?: '1';
 };
 
 type MyTasksFilterState = {
   activeWorkspaceId: string;
   workspaceOptions: Array<{ id: string; name: string }>;
   projectOptions: Array<{ id: string; name: string }>;
-  statusOptions: Array<{ id: string; name: string }>;
+  statusOptions: Array<{ id: string; name: string; label: string }>;
   selectedProjectId: string | null;
   selectedStatusId: string | null;
   selectedQuickFilter: MyTasksQuickFilter | null;

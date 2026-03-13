@@ -91,6 +91,7 @@ describe('task queries', () => {
         response: {
           data: [
             baseTask({ id: 'waiting', is_today: true, status_id: 'waiting-id', status: [{ id: 'waiting-id', name: 'Waiting', color: '#b66a00', is_done: false }] }),
+            baseTask({ id: 'overdue', due_at: '2026-02-14T10:00:00.000Z' }),
             baseTask({ id: 'week', due_at: '2026-02-18T10:00:00.000Z' }),
             baseTask({ id: 'later', due_at: '2026-03-02T10:00:00.000Z' })
           ]
@@ -101,6 +102,7 @@ describe('task queries', () => {
         response: {
           data: [
             baseTask({ id: 'waiting', is_today: true, status_id: 'waiting-id', status: [{ id: 'waiting-id', name: 'Waiting', color: '#b66a00', is_done: false }] }),
+            baseTask({ id: 'overdue', due_at: '2026-02-14T10:00:00.000Z' }),
             baseTask({ id: 'week', due_at: '2026-02-18T10:00:00.000Z' }),
             baseTask({ id: 'later', due_at: '2026-03-02T10:00:00.000Z' })
           ]
@@ -134,6 +136,7 @@ describe('task queries', () => {
     });
 
     expect(waiting.today.map((task) => task.id)).toEqual(['waiting']);
+    expect(dueThisWeek.overdue).toEqual([]);
     expect(dueThisWeek.upcoming['2026-02-18']?.map((task) => task.id)).toEqual(['week']);
     expect(dueThisWeek.upcoming['2026-03-02']).toBeUndefined();
     expect(unassigned.upcoming['2026-02-17']?.map((task) => task.id)).toEqual(['unassigned']);

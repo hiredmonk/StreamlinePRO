@@ -174,6 +174,8 @@ export async function getMyTasks(
 
   const today = startOfDay(new Date());
   const twoWeeks = endOfDay(addDays(today, 14));
+  const dueThisWeekEnd =
+    input.quickFilter === 'due-this-week' ? endOfDay(addDays(today, 7)) : null;
   const normalized = normalizeTaskRows(data ?? [])
     .filter((task) => !task.completed_at)
     .filter((task) => !input.statusIds?.length || input.statusIds.includes(task.status_id));
@@ -199,6 +201,10 @@ export async function getMyTasks(
 
     const dueDate = new Date(task.due_at);
 
+    if (dueThisWeekEnd && !isWithinInterval(dueDate, { start: today, end: dueThisWeekEnd })) {
+      return;
+    }
+
     if (dueDate < today) {
       grouped.overdue.push(task);
       return;
@@ -207,13 +213,6 @@ export async function getMyTasks(
     if (task.is_today || isSameDay(dueDate, today)) {
       grouped.today.push(task);
       return;
-    }
-
-    if (input.quickFilter === 'due-this-week') {
-      const endOfWeekWindow = endOfDay(addDays(today, 7));
-      if (!isWithinInterval(dueDate, { start: today, end: endOfWeekWindow })) {
-        return;
-      }
     }
 
     if (isWithinInterval(dueDate, { start: today, end: twoWeeks })) {
