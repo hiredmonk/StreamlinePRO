@@ -47,6 +47,9 @@
       "Bash(cmd.exe:*)",
       "Bash(find:*)",
       "Bash(pnpm:*)",
+      "Bash(npx pnpm:*)",
+      "Bash(which:*)",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO:*)",
       "mcp__github__create_pull_request",
       "mcp__github__get_pull_request",
       "mcp__github__list_pull_requests",
@@ -81,7 +84,20 @@
       "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx next lint 2>&1)",
       "Bash(cd D:/Himanshu/dev/StreamlinePRO && gh pr create --title \"feat\\(tasks\\): add recurrence management UI\" --body \"$\\(cat <<'EOF'\n## Summary\n\n- Add 5 server actions \\(create, update, pause, resume, clear\\) for managing task recurrence from the drawer\n- Add `RecurrenceCard` server component with three states: disabled \\(subtask/completed/no due date\\), empty \\(cadence controls\\), and active \\(summary + edit/pause/remove\\)\n- Add due-date clearing guard on `updateTaskAction` to prevent removing due dates from recurring tasks\n- Thread `recurrenceEditorState` through task drawer loader and both page files \\(`/my-tasks`, `/projects/[projectId]`\\)\n\n## New files\n\n| File | Purpose |\n|---|---|\n| `lib/validators/recurrence.ts` | Zod schemas for all 5 actions |\n| `lib/domain/tasks/recurrence-types.ts` | Shared types \\(`TaskRecurrenceSummary`, `TaskRecurrenceEditorState`\\) |\n| `lib/domain/tasks/recurrence-state.ts` | `resolveRecurrenceEditorState\\(\\)` — eligibility + summary builder |\n| `lib/actions/recurrence-actions.ts` | 5 `'use server'` CRUD actions |\n| `app/components/tasks/recurrence-card.tsx` | Server component rendered in task drawer |\n| `tests/unit/validators-recurrence.test.ts` | 13 validator tests |\n| `tests/unit/actions/recurrence-actions.test.ts` | 11 action tests |\n| `tests/unit/domain/recurrence-state.test.ts` | 8 state resolver tests |\n\n## Test plan\n\n- [x] All 231 unit tests pass \\(`vitest run`\\)\n- [x] Zero ESLint violations \\(`next lint`\\)\n- [ ] Open top-level task with due date → empty recurrence card with cadence controls\n- [ ] Set recurrence → card shows summary \\(e.g. \"Every 2 weeks\"\\) + next due preview\n- [ ] Pause → paused badge, complete task → no new task spawned\n- [ ] Resume → badge gone, complete task → new task with advanced due date\n- [ ] Remove recurrence → card returns to empty state\n- [ ] Open subtask → disabled card: \"Subtasks cannot have recurrence\"\n- [ ] Open task without due date → disabled: \"Set a due date first\"\n- [ ] Try clearing due date on recurring task → error message\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
       "Bash(git log:*)",
-      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && rm -f parse-comments.js parse-issue-comments.js pr1_comments.json pr8_comments.json pr9_comments.json pr10_comments.json pr11_comments.json pr12_reviews.json)"
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && rm -f parse-comments.js parse-issue-comments.js pr1_comments.json pr8_comments.json pr9_comments.json pr10_comments.json pr11_comments.json pr12_reviews.json)",
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && export PATH=\"$PATH:/c/Users/hp/AppData/Roaming/npm:/c/Users/hp/AppData/Local/pnpm:/c/Program Files/nodejs\" && npx pnpm lint 2>&1 || npm exec -- pnpm lint 2>&1)",
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && npx pnpm typecheck 2>&1)",
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && npx pnpm test tests/unit/actions/project-actions.test.ts tests/unit/actions/form-actions.test.ts tests/unit/components/create-project-form.test.tsx tests/unit/components/save-project-template-form.test.tsx tests/unit/components/projects-page.test.tsx tests/unit/components/project-detail-page.test.tsx tests/unit/domain/project-template-queries.test.ts tests/unit/validators-project.test.ts tests/unit/page-loaders/projects-page.test.ts tests/unit/page-loaders/project-detail-page.test.ts 2>&1)",
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && npx pnpm test tests/unit/actions/project-actions.test.ts 2>&1)",
+      "Bash(cd \"D:/Himanshu/dev/StreamlinePRO\" && npx pnpm test 2>&1)",
+      "Bash(git add:*)",
+      "Bash(for pr:*)",
+      "Bash(head -30 \"D:/Himanshu/dev/StreamlinePRO/app/\\(app\\)/projects/[projectId]/page.tsx\")",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx pnpm lint 2>&1 | tail -20)",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx pnpm typecheck 2>&1 | tail -30)",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx pnpm typecheck 2>&1 | tail -20)",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx pnpm test 2>&1 | tail -10)",
+      "Bash(cd D:/Himanshu/dev/StreamlinePRO && npx pnpm build 2>&1 | tail -30)"
     ]
   }
 }
