@@ -60,9 +60,7 @@ export default async function ProjectDetailPage({
 
         {pageData.templateAuthoring ? (
           <SaveProjectTemplateForm
-            workspaceId={pageData.templateAuthoring.workspaceId}
             projectId={pageData.templateAuthoring.projectId}
-            actorUserId={pageData.templateAuthoring.actorUserId}
           />
         ) : null}
 

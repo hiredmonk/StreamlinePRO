@@ -15,7 +15,7 @@ describe('project template queries', () => {
     expect(templates).toEqual([]);
   });
 
-  it('maps template summaries with status/section/task counts', async () => {
+  it('maps template summaries with task count from snapshot_json', async () => {
     const { supabase } = createSupabaseMock([
       {
         table: 'project_templates',
@@ -24,25 +24,26 @@ describe('project template queries', () => {
             {
               id: 't1',
               workspace_id: 'w1',
+              source_project_id: 'p1',
               name: 'Sprint',
+              description: 'Two-week sprint',
               include_tasks: true,
+              snapshot_json: {
+                statuses: [
+                  { name: 'To do', color: '#111111', isDone: false, sortOrder: 0 },
+                  { name: 'Done', color: '#1b7f4b', isDone: true, sortOrder: 1 }
+                ],
+                sections: [{ name: 'Backlog', sortOrder: 0 }],
+                tasks: [
+                  { title: 'Task 1', priority: null, statusName: 'To do', sectionName: 'Backlog' },
+                  { title: 'Task 2', priority: 'high', statusName: 'To do', sectionName: null }
+                ]
+              },
               created_by: 'u1',
               created_at: '2026-03-04T00:00:00.000Z'
             }
           ]
         }
-      },
-      {
-        table: 'project_template_statuses',
-        response: { data: [{ template_id: 't1' }, { template_id: 't1' }] }
-      },
-      {
-        table: 'project_template_sections',
-        response: { data: [{ template_id: 't1' }] }
-      },
-      {
-        table: 'project_template_tasks',
-        response: { data: [{ template_id: 't1' }, { template_id: 't1' }] }
       }
     ]);
 
@@ -50,8 +51,9 @@ describe('project template queries', () => {
     expect(templates).toEqual([
       expect.objectContaining({
         id: 't1',
-        statusCount: 2,
-        sectionCount: 1,
+        sourceProjectId: 'p1',
+        name: 'Sprint',
+        description: 'Two-week sprint',
         taskCount: 2
       })
     ]);

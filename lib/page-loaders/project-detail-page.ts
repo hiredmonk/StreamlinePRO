@@ -20,11 +20,7 @@ export type ProjectDetailPageData = {
   selectedTaskMode: 'details' | 'completed';
   recurringNotice: string | null;
   templateAuthoring:
-    | {
-        workspaceId: string;
-        projectId: string;
-        actorUserId: string;
-      }
+    | { projectId: string }
     | null;
 };
 
@@ -67,11 +63,7 @@ export async function loadProjectDetailPageData(
         : null,
     templateAuthoring:
       project.privacy === 'workspace_visible'
-        ? {
-            workspaceId: project.workspaceId,
-            projectId: project.id,
-            actorUserId: user.id
-          }
+        ? { projectId: project.id }
         : null
   };
 }

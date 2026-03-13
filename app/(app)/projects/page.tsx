@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { EmptyState } from '@/app/components/ui/empty-state';
 import { CreateProjectForm } from '@/app/components/projects/create-project-form';
-import { CreateFromTemplateForm } from '@/app/components/projects/create-from-template-form';
 import { CreateWorkspaceForm } from '@/app/components/projects/create-workspace-form';
 import { ProjectCardGrid } from '@/app/components/projects/project-card-grid';
 import { TeamAccessPanel } from '@/app/components/projects/team-access-panel';
@@ -125,15 +124,9 @@ export default async function ProjectsPage({
         </div>
       </section>
 
-      <CreateFromTemplateForm
-        workspaceId={pageData.activeWorkspace.id}
-        actorUserId={pageData.currentUserId}
-        templates={pageData.templates}
-      />
-
       {pageData.onboarding ? <WorkspaceOnboardingPanel onboarding={pageData.onboarding} /> : null}
 
-      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} />
+      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} templates={pageData.templates} />
 
       {pageData.teamAccess ? (
         <TeamAccessPanel

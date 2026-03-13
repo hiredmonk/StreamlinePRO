@@ -8,19 +8,16 @@ vi.mock('@/lib/actions/form-actions', () => ({
 }));
 
 describe('SaveProjectTemplateForm', () => {
-  it('renders required fields and hidden identifiers', () => {
+  it('renders required fields and hidden projectId', () => {
     render(
       <SaveProjectTemplateForm
-        workspaceId="w1"
         projectId="p1"
-        actorUserId="u1"
       />
     );
 
     expect(screen.getByPlaceholderText('Template name')).toBeRequired();
-    expect(screen.getByDisplayValue('w1')).toHaveAttribute('name', 'workspaceId');
-    expect(screen.getByDisplayValue('p1')).toHaveAttribute('name', 'sourceProjectId');
-    expect(screen.getByDisplayValue('u1')).toHaveAttribute('name', 'actorUserId');
+    expect(screen.getByDisplayValue('p1')).toHaveAttribute('name', 'projectId');
+    expect(screen.getByPlaceholderText('Description (optional)')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Include open tasks' })).toBeChecked();
     expect(screen.getByRole('button', { name: 'Save as template' })).toBeInTheDocument();
   });

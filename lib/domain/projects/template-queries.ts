@@ -1,11 +1,17 @@
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
-import type { ProjectTemplateSummary } from '@/lib/contracts/project-templates';
+import type {
+  ProjectTemplateSummary,
+  ProjectTemplateSnapshot
+} from '@/lib/contracts/project-templates';
 
-type TemplateSummaryRow = {
+type TemplateRow = {
   id: string;
   workspace_id: string;
+  source_project_id: string | null;
   name: string;
+  description: string | null;
   include_tasks: boolean;
+  snapshot_json: ProjectTemplateSnapshot;
   created_by: string;
   created_at: string;
 };
@@ -16,7 +22,7 @@ export async function getProjectTemplateSummaries(
 ): Promise<ProjectTemplateSummary[]> {
   const { data: templates, error } = await supabase
     .from('project_templates')
-    .select('id, workspace_id, name, include_tasks, created_by, created_at')
+    .select('id, workspace_id, source_project_id, name, description, include_tasks, snapshot_json, created_by, created_at')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false });
 
@@ -28,62 +34,32 @@ export async function getProjectTemplateSummaries(
     return [];
   }
 
-  const templateIds = templates.map((template) => template.id);
-
-  const [{ data: statuses, error: statusesError }, { data: sections, error: sectionsError }, { data: tasks, error: tasksError }] =
-    await Promise.all([
-      supabase
-        .from('project_template_statuses')
-        .select('template_id')
-        .in('template_id', templateIds),
-      supabase
-        .from('project_template_sections')
-        .select('template_id')
-        .in('template_id', templateIds),
-      supabase
-        .from('project_template_tasks')
-        .select('template_id')
-        .in('template_id', templateIds)
-    ]);
-
-  if (statusesError) {
-    throw statusesError;
-  }
-  if (sectionsError) {
-    throw sectionsError;
-  }
-  if (tasksError) {
-    throw tasksError;
-  }
-
-  const statusCountByTemplateId = countRowsByTemplateId(statuses);
-  const sectionCountByTemplateId = countRowsByTemplateId(sections);
-  const taskCountByTemplateId = countRowsByTemplateId(tasks);
-
-  return (templates as TemplateSummaryRow[]).map((template) => ({
+  return (templates as unknown as TemplateRow[]).map((template) => ({
     id: template.id,
     workspaceId: template.workspace_id,
+    sourceProjectId: template.source_project_id,
     name: template.name,
+    description: template.description,
     includeTasks: template.include_tasks,
-    statusCount: statusCountByTemplateId.get(template.id) ?? 0,
-    sectionCount: sectionCountByTemplateId.get(template.id) ?? 0,
-    taskCount: taskCountByTemplateId.get(template.id) ?? 0,
+    taskCount: template.snapshot_json?.tasks?.length ?? 0,
     createdBy: template.created_by,
     createdAt: template.created_at
   }));
 }
 
-function countRowsByTemplateId(
-  rows: Array<{ template_id: string }> | null
-): Map<string, number> {
-  const countByTemplateId = new Map<string, number>();
+export async function getProjectTemplateById(
+  supabase: AppSupabaseClient,
+  templateId: string
+): Promise<TemplateRow | null> {
+  const { data, error } = await supabase
+    .from('project_templates')
+    .select('id, workspace_id, source_project_id, name, description, include_tasks, snapshot_json, created_by, created_at')
+    .eq('id', templateId)
+    .maybeSingle();
 
-  for (const row of rows ?? []) {
-    countByTemplateId.set(
-      row.template_id,
-      (countByTemplateId.get(row.template_id) ?? 0) + 1
-    );
+  if (error) {
+    throw error;
   }
 
-  return countByTemplateId;
+  return (data as unknown as TemplateRow | null) ?? null;
 }

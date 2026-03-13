@@ -4,7 +4,6 @@ import {
   cancelWorkspaceInviteFromForm,
   completeTaskFromForm,
   createFollowUpTaskFromForm,
-  createProjectFromTemplateFromForm,
   createProjectStatusFromForm,
   createProjectFromForm,
   createProjectTemplateFromForm,
@@ -32,13 +31,10 @@ import {
   createProjectAction,
   deleteProjectStatusAction,
   reorderProjectStatusesAction,
+  saveProjectTemplateAction,
   updateProjectStatusAction,
   createWorkspaceAction
 } from '@/lib/actions/project-actions';
-import {
-  createProjectFromTemplateAction,
-  createProjectTemplateAction
-} from '@/lib/actions/project-template-actions';
 import {
   cancelWorkspaceInviteAction,
   createWorkspaceInviteAction,
@@ -54,11 +50,8 @@ vi.mock('@/lib/actions/project-actions', () => ({
   createProjectStatusAction: vi.fn(),
   updateProjectStatusAction: vi.fn(),
   reorderProjectStatusesAction: vi.fn(),
-  deleteProjectStatusAction: vi.fn()
-}));
-vi.mock('@/lib/actions/project-template-actions', () => ({
-  createProjectTemplateAction: vi.fn(),
-  createProjectFromTemplateAction: vi.fn()
+  deleteProjectStatusAction: vi.fn(),
+  saveProjectTemplateAction: vi.fn()
 }));
 vi.mock('@/lib/actions/workspace-actions', () => ({
   createWorkspaceInviteAction: vi.fn(),
@@ -142,22 +135,41 @@ describe('form actions', () => {
     await createProjectFromForm(formData);
 
     expect(createProjectAction).toHaveBeenCalledWith(
-      expect.objectContaining({ privacy: 'private' })
+      expect.objectContaining({ privacy: 'private', templateId: null })
     );
     expect(redirect).toHaveBeenCalledWith('/projects/p1');
   });
 
-  it('creates project template from form', async () => {
-    vi.mocked(createProjectTemplateAction).mockResolvedValue({
+  it('passes templateId when creating project from template', async () => {
+    vi.mocked(createProjectAction).mockResolvedValue({
+      ok: true,
+      data: { projectId: 'p1' }
+    });
+
+    const formData = new FormData();
+    formData.set('workspaceId', 'w1');
+    formData.set('name', 'Sprint Clone');
+    formData.set('templateId', 'tpl1');
+
+    await createProjectFromForm(formData);
+
+    expect(createProjectAction).toHaveBeenCalledWith(
+      expect.objectContaining({ templateId: 'tpl1' })
+    );
+    expect(redirect).toHaveBeenCalledWith('/projects/p1');
+  });
+
+  it('saves project template from form', async () => {
+    vi.mocked(saveProjectTemplateAction).mockResolvedValue({
       ok: true,
       data: {
         template: {
           id: 't1',
           workspaceId: 'w1',
+          sourceProjectId: 'p1',
           name: 'Sprint',
+          description: 'Two-week sprint',
           includeTasks: true,
-          statusCount: 2,
-          sectionCount: 1,
           taskCount: 3,
           createdBy: 'u1',
           createdAt: '2026-03-04T00:00:00.000Z'
@@ -166,57 +178,21 @@ describe('form actions', () => {
     });
 
     const formData = new FormData();
-    formData.set('workspaceId', 'w1');
-    formData.set('sourceProjectId', 'p1');
+    formData.set('projectId', 'p1');
     formData.set('name', 'Sprint');
+    formData.set('description', 'Two-week sprint');
     formData.set('includeTasks', 'on');
-    formData.set('actorUserId', 'u1');
 
     await createProjectTemplateFromForm(formData);
 
-    expect(createProjectTemplateAction).toHaveBeenCalledWith(
+    expect(saveProjectTemplateAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        workspaceId: 'w1',
-        sourceProjectId: 'p1',
-        name: 'Sprint',
-        includeTasks: true,
-        actorUserId: 'u1'
-      })
-    );
-  });
-
-  it('creates project from template and redirects to project page', async () => {
-    vi.mocked(createProjectFromTemplateAction).mockResolvedValue({
-      ok: true,
-      data: {
         projectId: 'p1',
-        workspaceId: 'w1',
-        templateId: 't1',
-        createdStatusCount: 2,
-        createdSectionCount: 1,
-        createdTaskCount: 3
-      }
-    });
-
-    const formData = new FormData();
-    formData.set('workspaceId', 'w1');
-    formData.set('templateId', 't1');
-    formData.set('projectName', 'Cloned');
-    formData.set('dueAnchorDate', '2026-03-10');
-    formData.set('actorUserId', 'u1');
-
-    await createProjectFromTemplateFromForm(formData);
-
-    expect(createProjectFromTemplateAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: 'w1',
-        templateId: 't1',
-        projectName: 'Cloned',
-        dueAnchorDate: '2026-03-10',
-        actorUserId: 'u1'
+        name: 'Sprint',
+        description: 'Two-week sprint',
+        includeTasks: true
       })
     );
-    expect(redirect).toHaveBeenCalledWith('/projects/p1');
   });
 
   it('forwards workspace invite and member mutation forms', async () => {

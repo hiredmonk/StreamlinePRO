@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createProjectFromTemplateSchema,
-  createProjectTemplateSchema,
   createProjectSchema,
   createProjectStatusSchema,
   deleteProjectStatusSchema,
-  listProjectTemplatesSchema,
   projectPrivacySchema,
   reorderProjectStatusesSchema,
-  updateProjectStatusSchema,
-  updateProjectTemplateSchema
+  saveProjectTemplateSchema,
+  updateProjectStatusSchema
 } from '@/lib/validators/project';
 
 const uuid = '11111111-1111-4111-8111-111111111111';
@@ -26,6 +23,26 @@ describe('project validators', () => {
 
   it('accepts known privacy values', () => {
     expect(projectPrivacySchema.parse('private')).toBe('private');
+  });
+
+  it('accepts optional templateId in createProjectSchema', () => {
+    const parsed = createProjectSchema.parse({
+      workspaceId: uuid,
+      name: 'Roadmap',
+      templateId: uuid
+    });
+
+    expect(parsed.templateId).toBe(uuid);
+  });
+
+  it('accepts null templateId in createProjectSchema', () => {
+    const parsed = createProjectSchema.parse({
+      workspaceId: uuid,
+      name: 'Roadmap',
+      templateId: null
+    });
+
+    expect(parsed.templateId).toBeNull();
   });
 
   it('validates status create and update payloads', () => {
@@ -60,39 +77,24 @@ describe('project validators', () => {
     expect(result.success).toBe(false);
   });
 
-  it('validates project template create/list/update payloads', () => {
-    const createParsed = createProjectTemplateSchema.parse({
-      workspaceId: uuid,
-      sourceProjectId: uuid,
+  it('validates save project template payload', () => {
+    const parsed = saveProjectTemplateSchema.parse({
+      projectId: uuid,
       name: 'Sprint',
-      includeTasks: true,
-      actorUserId: uuid
+      description: 'Two-week sprint template',
+      includeTasks: true
     });
-    expect(createParsed.name).toBe('Sprint');
-
-    const listParsed = listProjectTemplatesSchema.parse({
-      workspaceId: uuid,
-      actorUserId: uuid
-    });
-    expect(listParsed.workspaceId).toBe(uuid);
-
-    const updateParsed = updateProjectTemplateSchema.parse({
-      templateId: uuid,
-      includeTasks: false,
-      actorUserId: uuid
-    });
-    expect(updateParsed.includeTasks).toBe(false);
+    expect(parsed.name).toBe('Sprint');
+    expect(parsed.description).toBe('Two-week sprint template');
+    expect(parsed.includeTasks).toBe(true);
   });
 
-  it('validates clone from template payload including due anchor date', () => {
-    const parsed = createProjectFromTemplateSchema.parse({
-      workspaceId: uuid,
-      templateId: uuid,
-      projectName: 'Clone target',
-      dueAnchorDate: '2026-03-15',
-      actorUserId: uuid
+  it('accepts save template without description', () => {
+    const parsed = saveProjectTemplateSchema.parse({
+      projectId: uuid,
+      name: 'Sprint',
+      includeTasks: false
     });
-
-    expect(parsed.dueAnchorDate).toBe('2026-03-15');
+    expect(parsed.description).toBeUndefined();
   });
 });

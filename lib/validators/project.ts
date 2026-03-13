@@ -22,7 +22,8 @@ export const createProjectSchema = z.object({
     .min(2, 'Project name should have at least 2 characters.')
     .max(100, 'Project name should stay below 100 characters.'),
   description: z.string().max(2000).optional(),
-  privacy: projectPrivacySchema.default('workspace_visible')
+  privacy: projectPrivacySchema.default('workspace_visible'),
+  templateId: z.uuid().nullable().optional()
 });
 
 export const createProjectStatusSchema = z.object({
@@ -68,42 +69,9 @@ export const deleteProjectStatusSchema = z
     path: ['fallbackStatusId']
   });
 
-export const createProjectTemplateSchema = z.object({
-  workspaceId: z.uuid(),
-  sourceProjectId: z.uuid(),
+export const saveProjectTemplateSchema = z.object({
+  projectId: z.uuid(),
   name: templateNameSchema,
-  includeTasks: z.boolean(),
-  actorUserId: z.uuid()
-});
-
-export const updateProjectTemplateSchema = z
-  .object({
-    templateId: z.uuid(),
-    name: templateNameSchema.optional(),
-    includeTasks: z.boolean().optional(),
-    actorUserId: z.uuid()
-  })
-  .refine((value) => value.name !== undefined || value.includeTasks !== undefined, {
-    message: 'Provide at least one field to update.',
-    path: ['templateId']
-  });
-
-export const createProjectFromTemplateSchema = z.object({
-  workspaceId: z.uuid(),
-  templateId: z.uuid(),
-  projectName: z
-    .string()
-    .min(2, 'Project name should have at least 2 characters.')
-    .max(100, 'Project name should stay below 100 characters.'),
-  dueAnchorDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due anchor date must use YYYY-MM-DD format.')
-    .nullable()
-    .optional(),
-  actorUserId: z.uuid()
-});
-
-export const listProjectTemplatesSchema = z.object({
-  workspaceId: z.uuid(),
-  actorUserId: z.uuid()
+  description: z.string().max(2000).optional(),
+  includeTasks: z.boolean()
 });

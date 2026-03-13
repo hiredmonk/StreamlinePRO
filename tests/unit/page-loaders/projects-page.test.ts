@@ -100,10 +100,10 @@ describe('loadProjectsPageData', () => {
       {
         id: 'tpl1',
         workspaceId: 'w1',
+        sourceProjectId: 'p-src',
         name: 'Sprint',
+        description: 'Two-week sprint',
         includeTasks: true,
-        statusCount: 2,
-        sectionCount: 1,
         taskCount: 3,
         createdBy: 'u1',
         createdAt: '2026-03-04T00:00:00.000Z'

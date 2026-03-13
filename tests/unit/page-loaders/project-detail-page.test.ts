@@ -108,9 +108,7 @@ describe('loadProjectDetailPageData', () => {
     });
     expect(result?.selectedTaskPanel).toBeNull();
     expect(result?.templateAuthoring).toEqual({
-      workspaceId: 'w1',
-      projectId: 'p1',
-      actorUserId: 'u1'
+      projectId: 'p1'
     });
     expect(loadTaskDrawerDataForTask).not.toHaveBeenCalled();
   });
@@ -161,9 +159,7 @@ describe('loadProjectDetailPageData', () => {
     expect(result?.setupGuide).toBeNull();
     expect(result?.currentUserId).toBe('u1');
     expect(result?.templateAuthoring).toEqual({
-      workspaceId: 'w1',
-      projectId: 'p1',
-      actorUserId: 'u1'
+      projectId: 'p1'
     });
   });
 });

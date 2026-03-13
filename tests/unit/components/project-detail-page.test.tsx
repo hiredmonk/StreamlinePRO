@@ -69,9 +69,7 @@ describe('ProjectDetailPage', () => {
       selectedTaskMode: 'details',
       recurringNotice: null,
       templateAuthoring: {
-        workspaceId: 'w1',
-        projectId: 'p1',
-        actorUserId: 'u1'
+        projectId: 'p1'
       }
     } as never);
 
