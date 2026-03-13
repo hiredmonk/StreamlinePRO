@@ -5,6 +5,7 @@ import {
   deleteProjectStatusSchema,
   projectPrivacySchema,
   reorderProjectStatusesSchema,
+  saveProjectTemplateSchema,
   updateProjectStatusSchema
 } from '@/lib/validators/project';
 
@@ -22,6 +23,26 @@ describe('project validators', () => {
 
   it('accepts known privacy values', () => {
     expect(projectPrivacySchema.parse('private')).toBe('private');
+  });
+
+  it('accepts optional templateId in createProjectSchema', () => {
+    const parsed = createProjectSchema.parse({
+      workspaceId: uuid,
+      name: 'Roadmap',
+      templateId: uuid
+    });
+
+    expect(parsed.templateId).toBe(uuid);
+  });
+
+  it('accepts null templateId in createProjectSchema', () => {
+    const parsed = createProjectSchema.parse({
+      workspaceId: uuid,
+      name: 'Roadmap',
+      templateId: null
+    });
+
+    expect(parsed.templateId).toBeNull();
   });
 
   it('validates status create and update payloads', () => {
@@ -54,5 +75,26 @@ describe('project validators', () => {
       fallbackStatusId: uuid
     });
     expect(result.success).toBe(false);
+  });
+
+  it('validates save project template payload', () => {
+    const parsed = saveProjectTemplateSchema.parse({
+      projectId: uuid,
+      name: 'Sprint',
+      description: 'Two-week sprint template',
+      includeTasks: true
+    });
+    expect(parsed.name).toBe('Sprint');
+    expect(parsed.description).toBe('Two-week sprint template');
+    expect(parsed.includeTasks).toBe(true);
+  });
+
+  it('accepts save template without description', () => {
+    const parsed = saveProjectTemplateSchema.parse({
+      projectId: uuid,
+      name: 'Sprint',
+      includeTasks: false
+    });
+    expect(parsed.description).toBeUndefined();
   });
 });

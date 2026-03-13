@@ -9,6 +9,7 @@ import {
   reorderProjectStatusesAction,
   updateProjectStatusAction
 } from '@/lib/actions/project-actions';
+import { saveProjectTemplateAction } from '@/lib/actions/project-actions';
 import {
   cancelWorkspaceInviteAction,
   createWorkspaceInviteAction,
@@ -52,6 +53,7 @@ export async function createWorkspaceFromForm(formData: FormData) {
 }
 
 export async function createProjectFromForm(formData: FormData) {
+  const templateId = String(formData.get('templateId') ?? '') || null;
   const result = await createProjectAction({
     workspaceId: String(formData.get('workspaceId') ?? ''),
     name: String(formData.get('name') ?? ''),
@@ -59,7 +61,8 @@ export async function createProjectFromForm(formData: FormData) {
     privacy:
       String(formData.get('privacy') ?? 'workspace_visible') === 'private'
         ? 'private'
-        : 'workspace_visible'
+        : 'workspace_visible',
+    templateId
   });
 
   if (!result.ok) {
@@ -67,6 +70,19 @@ export async function createProjectFromForm(formData: FormData) {
   }
 
   redirect(`/projects/${result.data.projectId}`);
+}
+
+export async function createProjectTemplateFromForm(formData: FormData) {
+  const result = await saveProjectTemplateAction({
+    projectId: String(formData.get('projectId') ?? ''),
+    name: String(formData.get('name') ?? ''),
+    description: String(formData.get('description') ?? '') || undefined,
+    includeTasks: formData.get('includeTasks') === 'on'
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function createWorkspaceInviteFromForm(formData: FormData) {

@@ -126,7 +126,7 @@ export default async function ProjectsPage({
 
       {pageData.onboarding ? <WorkspaceOnboardingPanel onboarding={pageData.onboarding} /> : null}
 
-      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} />
+      <CreateProjectForm id="create-project-form" workspaceId={pageData.activeWorkspace.id} templates={pageData.templates} />
 
       {pageData.teamAccess ? (
         <TeamAccessPanel

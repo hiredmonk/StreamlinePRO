@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 export const projectPrivacySchema = z.enum(['workspace_visible', 'private']);
+const templateNameSchema = z
+  .string()
+  .trim()
+  .min(2, 'Template name should have at least 2 characters.')
+  .max(100, 'Template name should stay below 100 characters.');
 const statusNameSchema = z
   .string()
   .trim()
@@ -17,7 +22,8 @@ export const createProjectSchema = z.object({
     .min(2, 'Project name should have at least 2 characters.')
     .max(100, 'Project name should stay below 100 characters.'),
   description: z.string().max(2000).optional(),
-  privacy: projectPrivacySchema.default('workspace_visible')
+  privacy: projectPrivacySchema.default('workspace_visible'),
+  templateId: z.uuid().nullable().optional()
 });
 
 export const createProjectStatusSchema = z.object({
@@ -62,3 +68,10 @@ export const deleteProjectStatusSchema = z
     message: 'Fallback status must be different from the status being deleted.',
     path: ['fallbackStatusId']
   });
+
+export const saveProjectTemplateSchema = z.object({
+  projectId: z.uuid(),
+  name: templateNameSchema,
+  description: z.string().max(2000).optional(),
+  includeTasks: z.boolean()
+});

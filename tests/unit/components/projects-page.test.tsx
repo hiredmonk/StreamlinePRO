@@ -36,12 +36,26 @@ describe('ProjectsPage', () => {
     );
   });
 
-  it('renders onboarding checklist for an admin workspace that has no tasks yet', async () => {
+  it('renders onboarding checklist and template selection in create form for an admin workspace with no tasks yet', async () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'workspace-detail',
+      currentUserId: 'u1',
       workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
       activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
       projects: [],
+      templates: [
+        {
+          id: 't1',
+          workspaceId: 'w1',
+          sourceProjectId: 'p1',
+          name: 'Sprint',
+          description: 'Two-week sprint',
+          includeTasks: true,
+          taskCount: 3,
+          createdBy: 'u1',
+          createdAt: '2026-03-04T00:00:00.000Z'
+        }
+      ],
       teamAccess: {
         members: [
           {
@@ -110,6 +124,7 @@ describe('ProjectsPage', () => {
       '#team-access-panel'
     );
     expect(screen.getByText('Members and invites')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Sprint/ })).toBeInTheDocument();
     expect(container.querySelector('#create-project-form')).toBeTruthy();
     expect(container.querySelector('#team-access-panel')).toBeTruthy();
   });
@@ -117,6 +132,7 @@ describe('ProjectsPage', () => {
   it('renders active workspace project list without onboarding when the workspace already has tasks', async () => {
     vi.mocked(loadProjectsPageData).mockResolvedValue({
       mode: 'workspace-detail',
+      currentUserId: 'u1',
       workspaces: [{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }],
       activeWorkspace: { id: 'w1', name: 'Ops', icon: null, role: 'admin' },
       projects: [
@@ -130,6 +146,7 @@ describe('ProjectsPage', () => {
           overdueCount: 0
         }
       ],
+      templates: [],
       teamAccess: null,
       onboarding: null
     });
@@ -139,6 +156,7 @@ describe('ProjectsPage', () => {
     expect(screen.getByText('Active workspace')).toBeInTheDocument();
     expect(screen.getByText('Core')).toBeInTheDocument();
     expect(screen.queryByText('Workspace onboarding')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Blank project' })).not.toBeInTheDocument();
   });
 
   it('renders create workspace flow when loader returns create workspace mode', async () => {

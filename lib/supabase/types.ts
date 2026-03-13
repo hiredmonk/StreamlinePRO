@@ -109,6 +109,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_templates: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          source_project_id: string | null;
+          name: string;
+          include_tasks: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          source_project_id?: string | null;
+          name: string;
+          include_tasks?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          source_project_id?: string | null;
+          name?: string;
+          include_tasks?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       project_members: {
         Row: {
           project_id: string;
@@ -127,6 +156,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_template_statuses: {
+        Row: {
+          id: string;
+          template_id: string;
+          name: string;
+          color: string;
+          is_done: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          name: string;
+          color?: string;
+          is_done?: boolean;
+          sort_order: number;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          color?: string;
+          is_done?: boolean;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       project_sections: {
         Row: {
           id: string;
@@ -138,6 +194,27 @@ export type Database = {
         Insert: {
           id?: string;
           project_id: string;
+          name: string;
+          sort_order: number;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      project_template_sections: {
+        Row: {
+          id: string;
+          template_id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
           name: string;
           sort_order: number;
           created_at?: string;
@@ -172,6 +249,39 @@ export type Database = {
           color?: string;
           sort_order?: number;
           is_done?: boolean;
+        };
+        Relationships: [];
+      };
+      project_template_tasks: {
+        Row: {
+          id: string;
+          template_id: string;
+          title: string;
+          description: string | null;
+          status_name: string | null;
+          section_name: string | null;
+          due_offset_days: number | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          title: string;
+          description?: string | null;
+          status_name?: string | null;
+          section_name?: string | null;
+          due_offset_days?: number | null;
+          sort_order: number;
+          created_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          status_name?: string | null;
+          section_name?: string | null;
+          due_offset_days?: number | null;
+          sort_order?: number;
         };
         Relationships: [];
       };
