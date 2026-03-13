@@ -144,6 +144,7 @@ export default async function MyTasksPage({
           })}
           mode={pageData.selectedTaskMode}
           recurringNotice={pageData.recurringNotice}
+          recurrenceEditorState={pageData.selectedTaskPanel.recurrenceEditorState}
         />
       ) : null}
     </div>

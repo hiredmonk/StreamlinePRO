@@ -160,12 +160,16 @@ export async function updateTaskAction(input: {
 
     const { data: existingTask, error: existingTaskError } = await supabase
       .from('tasks')
-      .select('id, project_id, assignee_id, title')
+      .select('id, project_id, assignee_id, title, recurrence_id')
       .eq('id', parsed.id)
       .maybeSingle();
 
     if (existingTaskError || !existingTask) {
       throw existingTaskError ?? new Error('Task not found.');
+    }
+
+    if (parsed.dueAt === null && existingTask.recurrence_id) {
+      throw new Error('Remove recurrence before clearing the due date.');
     }
 
     const assignmentScope = await getProjectAssignmentScope(supabase, existingTask.project_id);

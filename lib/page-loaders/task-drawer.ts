@@ -8,6 +8,8 @@ import {
   getTaskComments,
   type TaskWithRelations
 } from '@/lib/domain/tasks/queries';
+import { resolveRecurrenceEditorState } from '@/lib/domain/tasks/recurrence-state';
+import type { TaskRecurrenceEditorState } from '@/lib/domain/tasks/recurrence-types';
 
 export type TaskDrawerComment = {
   id: string;
@@ -40,6 +42,7 @@ export type TaskDrawerData = {
   comments: TaskDrawerComment[];
   attachments: TaskDrawerAttachment[];
   activity: TaskDrawerActivity[];
+  recurrenceEditorState: TaskRecurrenceEditorState;
 };
 
 export async function loadTaskDrawerData(
@@ -59,11 +62,12 @@ export async function loadTaskDrawerDataForTask(
   supabase: AppSupabaseClient,
   task: TaskWithRelations
 ): Promise<TaskDrawerData> {
-  const [subtasks, comments, attachments, activity] = await Promise.all([
+  const [subtasks, comments, attachments, activity, recurrenceEditorState] = await Promise.all([
     getSubtasks(supabase, task.id),
     getTaskComments(supabase, task.id),
     getTaskAttachments(supabase, task.id),
-    getTaskActivity(supabase, task.id)
+    getTaskActivity(supabase, task.id),
+    resolveRecurrenceEditorState(supabase, task)
   ]);
 
   return {
@@ -76,7 +80,8 @@ export async function loadTaskDrawerDataForTask(
       event_type: event.event_type,
       actor_id: event.actor_id,
       created_at: event.created_at
-    }))
+    })),
+    recurrenceEditorState
   };
 }
 
