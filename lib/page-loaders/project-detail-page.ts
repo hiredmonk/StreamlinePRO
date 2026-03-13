@@ -69,7 +69,7 @@ export async function loadProjectDetailPageData(
 }
 
 export function buildProjectWorkflowOptions(
-  statuses: Array<{ id: string; name: string; color: string; is_done: boolean }>,
+  statuses: Array<{ id: string; name: string; color: string; is_done: boolean; lane_version: number }>,
   sections: Array<{ id: string; name: string }>
 ) {
   return {
@@ -84,7 +84,8 @@ export function buildProjectWorkflowOptions(
     boardStatuses: statuses.map((status) => ({
       id: status.id,
       name: status.name,
-      color: status.color
+      color: status.color,
+      laneVersion: status.lane_version
     })),
     managerStatuses: statuses.map((status) => ({
       id: status.id,

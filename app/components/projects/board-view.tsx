@@ -1,7 +1,7 @@
 'use client';
 
 import { CalendarClock, Clock3 } from 'lucide-react';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createTaskAction, moveTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
 import { PriorityBadge } from '@/app/components/ui/badge';
@@ -11,7 +11,8 @@ import { getTaskCardMeta } from '@/lib/view-models/task-card';
 
 type BoardViewProps = {
   projectId: string;
-  statuses: Array<{ id: string; name: string; color: string }>;
+  currentUserId: string;
+  statuses: Array<{ id: string; name: string; color: string; laneVersion?: number }>;
   tasks: TaskWithRelations[];
   assignees: Array<{
     userId: string;
@@ -25,15 +26,17 @@ type BoardViewProps = {
 
 export function BoardView({
   projectId,
+  currentUserId,
   statuses,
   tasks,
   assignees,
   drawerPathname
 }: BoardViewProps) {
-  const { columns, isPending, moveTask } = useBoardTasks({
+  const { columns, isPending, moveTask, boardMessage, clearBoardMessage } = useBoardTasks({
     tasks,
     statuses,
-    moveTask: moveTaskAction
+    moveTask: moveTaskAction,
+    projectId
   });
   const router = useRouter();
   const [assigneeOverrides, setAssigneeOverrides] = useState<Record<string, string>>({});
@@ -42,6 +45,7 @@ export function BoardView({
   const [activeQuickAddStatusId, setActiveQuickAddStatusId] = useState<string | null>(null);
   const [isAssigneePending, startAssigneeTransition] = useTransition();
   const [isQuickAddPending, startQuickAddTransition] = useTransition();
+  const dropTargetIndexRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     setAssigneeOverrides({});
@@ -152,6 +156,14 @@ export function BoardView({
           {isPending || isAssigneePending || isQuickAddPending ? '| syncing' : ''}
         </p>
       </div>
+      {boardMessage ? (
+        <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          <span>{boardMessage}</span>
+          <button type="button" onClick={clearBoardMessage} className="ml-3 text-amber-600 hover:text-amber-800">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <div className="overflow-x-auto pb-1">
         <div
           className="grid min-w-max gap-3"
@@ -161,11 +173,16 @@ export function BoardView({
             <div
               key={column.id}
               className="rounded-2xl border border-[#d9cfb9] bg-[#fff9ef] p-3"
-              onDragOver={(event) => event.preventDefault()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                // Fallback: set drop index to end of lane
+                dropTargetIndexRef.current[column.id] = column.items.length;
+              }}
               onDrop={(event) => {
                 const taskId = event.dataTransfer.getData('text/task-id');
                 if (taskId) {
-                  void moveTask(taskId, column.id);
+                  const targetIndex = dropTargetIndexRef.current[column.id] ?? column.items.length;
+                  void moveTask(taskId, column.id, targetIndex);
                 }
               }}
             >
@@ -179,7 +196,7 @@ export function BoardView({
               </div>
 
               <ul className="space-y-2">
-                {column.items.map((task) => {
+                {column.items.map((task, cardIndex) => {
                   const currentAssignee = getAssignee(task);
                   const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
                   const taskMeta = getTaskCardMeta(task);
@@ -190,6 +207,12 @@ export function BoardView({
                       draggable
                       onDragStart={(event) => {
                         event.dataTransfer.setData('text/task-id', task.id);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        dropTargetIndexRef.current[column.id] =
+                          event.clientY < rect.top + rect.height / 2 ? cardIndex : cardIndex + 1;
                       }}
                       className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 active:cursor-grabbing"
                     >

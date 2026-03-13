@@ -103,6 +103,7 @@ export default async function ProjectDetailPage({
 
         <BoardView
           projectId={pageData.project.id}
+          currentUserId={pageData.currentUserId}
           statuses={pageData.workflowOptions.boardStatuses}
           tasks={pageData.tasks}
           assignees={pageData.assignees}

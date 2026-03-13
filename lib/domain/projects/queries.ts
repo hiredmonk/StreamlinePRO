@@ -183,7 +183,7 @@ export async function getProjectStatuses(
 ) {
   const { data, error } = await supabase
     .from("project_statuses")
-    .select("id, name, color, is_done, sort_order")
+    .select("id, name, color, is_done, sort_order, lane_version")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true });
 
@@ -192,6 +192,57 @@ export async function getProjectStatuses(
   }
 
   return data ?? [];
+}
+
+export async function fetchBoardOrderState(
+  supabase: AppSupabaseClient,
+  projectId: string,
+  statusId?: string,
+) {
+  let laneQuery = supabase
+    .from("project_statuses")
+    .select("id, project_id, lane_version")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true });
+
+  if (statusId) {
+    laneQuery = laneQuery.eq("id", statusId);
+  }
+
+  const { data: laneRows, error: laneError } = await laneQuery;
+
+  if (laneError) {
+    throw laneError;
+  }
+
+  const lanes: Array<{
+    projectId: string;
+    statusId: string;
+    laneVersion: number;
+    orderedTaskIds: string[];
+  }> = [];
+
+  for (const lane of laneRows ?? []) {
+    const { data: laneTasks, error: taskError } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("status_id", lane.id)
+      .order("sort_order", { ascending: true });
+
+    if (taskError) {
+      throw taskError;
+    }
+
+    lanes.push({
+      projectId,
+      statusId: lane.id,
+      laneVersion: lane.lane_version,
+      orderedTaskIds: (laneTasks ?? []).map((t) => t.id),
+    });
+  }
+
+  return { lanes };
 }
 
 export async function getProjectSections(

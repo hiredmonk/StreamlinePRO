@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { moveTaskWithConcurrencyAction } from '@/lib/actions/task-actions';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 
 type BoardStatus = {
   id: string;
   name: string;
   color: string;
+  laneVersion?: number;
 };
 
 type MoveTaskMutation = (input: {
@@ -17,24 +19,52 @@ type MoveTaskMutation = (input: {
 export type UseBoardTasksResult = {
   columns: Array<BoardStatus & { items: TaskWithRelations[] }>;
   isPending: boolean;
-  moveTask: (taskId: string, statusId: string) => Promise<void>;
+  moveTask: (taskId: string, statusId: string, targetIndex?: number) => Promise<void>;
+  laneVersions: Record<string, number>;
+  boardMessage: string | null;
+  clearBoardMessage: () => void;
 };
 
 export function useBoardTasks({
   tasks,
   statuses,
-  moveTask
+  moveTask,
+  projectId
 }: {
   tasks: TaskWithRelations[];
   statuses: BoardStatus[];
   moveTask: MoveTaskMutation;
+  projectId?: string;
 }): UseBoardTasksResult {
   const [items, setItems] = useState(tasks);
   const [isPending, startTransition] = useTransition();
+  const [boardMessage, setBoardMessage] = useState<string | null>(null);
+
+  const [laneVersions, setLaneVersions] = useState<Record<string, number>>(() => {
+    const versions: Record<string, number> = {};
+    for (const status of statuses) {
+      if (status.laneVersion !== undefined) {
+        versions[status.id] = status.laneVersion;
+      }
+    }
+    return versions;
+  });
 
   useEffect(() => {
     setItems(tasks);
   }, [tasks]);
+
+  useEffect(() => {
+    const versions: Record<string, number> = {};
+    for (const status of statuses) {
+      if (status.laneVersion !== undefined) {
+        versions[status.id] = status.laneVersion;
+      }
+    }
+    if (Object.keys(versions).length > 0) {
+      setLaneVersions(versions);
+    }
+  }, [statuses]);
 
   const columns = useMemo(
     () =>
@@ -47,9 +77,16 @@ export function useBoardTasks({
     [items, statuses]
   );
 
-  function moveTaskItem(taskId: string, statusId: string) {
+  const hasConcurrency = Object.keys(laneVersions).length > 0 && projectId;
+
+  const clearBoardMessage = useCallback(() => setBoardMessage(null), []);
+
+  function moveTaskItem(taskId: string, statusId: string, targetIndex?: number) {
     return new Promise<void>((resolve) => {
       const previous = items;
+      const taskToMove = items.find((task) => task.id === taskId);
+      const fromStatusId = taskToMove?.status_id;
+
       const nextSortOrder =
         previous
           .filter((task) => task.status_id === statusId)
@@ -76,6 +113,51 @@ export function useBoardTasks({
 
       startTransition(() => {
         void (async () => {
+          if (hasConcurrency && fromStatusId) {
+            const expectedVersion = laneVersions[statusId] ?? 0;
+            const laneItems = previous.filter((t) => t.status_id === statusId);
+            const effectiveTargetIndex = targetIndex ?? laneItems.length;
+
+            const result = await moveTaskWithConcurrencyAction({
+              taskId,
+              projectId,
+              fromStatusId,
+              toStatusId: statusId,
+              targetIndex: effectiveTargetIndex,
+              expectedLaneVersion: expectedVersion
+            });
+
+            if (!result.ok) {
+              setItems(previous);
+              setBoardMessage(result.error);
+            } else if (result.data.conflict) {
+              setItems(previous);
+              setBoardMessage(`Board conflict: ${result.data.conflict.reason}. Please refresh.`);
+            } else {
+              // Issue 2 fix: update BOTH destination and source lane versions
+              setLaneVersions((current) => {
+                const next = { ...current, [statusId]: result.data.laneVersion };
+                if (result.data.sourceStatusId !== undefined && result.data.sourceLaneVersion !== undefined) {
+                  next[result.data.sourceStatusId] = result.data.sourceLaneVersion;
+                }
+                return next;
+              });
+
+              if (result.data.sortOrder !== undefined) {
+                setItems((current) =>
+                  current.map((task) =>
+                    task.id === taskId
+                      ? { ...task, sort_order: result.data.sortOrder }
+                      : task
+                  )
+                );
+              }
+            }
+
+            resolve();
+            return;
+          }
+
           const result = await moveTask({
             id: taskId,
             statusId
@@ -105,6 +187,9 @@ export function useBoardTasks({
   return {
     columns,
     isPending,
-    moveTask: moveTaskItem
+    moveTask: moveTaskItem,
+    laneVersions,
+    boardMessage,
+    clearBoardMessage
   };
 }

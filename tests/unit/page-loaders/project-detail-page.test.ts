@@ -45,7 +45,7 @@ describe('loadProjectDetailPageData', () => {
       overdueCount: 0
     });
     vi.mocked(getProjectStatuses).mockResolvedValue([
-      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0 }
+      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0, lane_version: 0 }
     ]);
     vi.mocked(getProjectSections).mockResolvedValue([{ id: 'sec1', name: 'Backlog', sort_order: 0 }]);
     vi.mocked(getProjectTasks).mockResolvedValue([]);
@@ -125,7 +125,7 @@ describe('loadProjectDetailPageData', () => {
       overdueCount: 0
     });
     vi.mocked(getProjectStatuses).mockResolvedValue([
-      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0 }
+      { id: 'todo', name: 'To do', color: '#111111', is_done: false, sort_order: 0, lane_version: 0 }
     ]);
     vi.mocked(getProjectSections).mockResolvedValue([{ id: 'sec1', name: 'Backlog', sort_order: 0 }]);
     vi.mocked(getProjectTasks).mockResolvedValue([
@@ -168,13 +168,13 @@ describe('buildProjectWorkflowOptions', () => {
   it('normalizes task and board option groups', () => {
     expect(
       buildProjectWorkflowOptions(
-        [{ id: 'todo', name: 'To do', color: '#111111', is_done: false }],
+        [{ id: 'todo', name: 'To do', color: '#111111', is_done: false, lane_version: 0 }],
         [{ id: 'sec1', name: 'Backlog' }]
       )
     ).toEqual({
       taskStatuses: [{ id: 'todo', name: 'To do' }],
       taskSections: [{ id: 'sec1', name: 'Backlog' }],
-      boardStatuses: [{ id: 'todo', name: 'To do', color: '#111111' }],
+      boardStatuses: [{ id: 'todo', name: 'To do', color: '#111111', laneVersion: 0 }],
       managerStatuses: [{ id: 'todo', name: 'To do', color: '#111111', is_done: false }]
     });
   });

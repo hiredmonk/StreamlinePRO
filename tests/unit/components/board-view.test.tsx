@@ -14,6 +14,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/actions/task-actions', () => ({
   createTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't2' } })),
   moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1', sortOrder: 12 } })),
+  moveTaskWithConcurrencyAction: vi.fn(async () => ({
+    ok: true,
+    data: { taskId: 't1', projectId: 'p1', statusId: 'done', sectionId: null, sortOrder: 1, laneVersion: 1 }
+  })),
   updateTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1' } }))
 }));
 
@@ -37,6 +41,7 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p1"
+        currentUserId="u1"
         drawerPathname="/projects/p1"
         assignees={assignees}
         statuses={[
@@ -87,6 +92,7 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p1"
+        currentUserId="u1"
         drawerPathname="/projects/p1"
         assignees={assignees}
         statuses={[{ id: 'todo', name: 'To do', color: '#000' }]}
@@ -130,6 +136,7 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p1"
+        currentUserId="u1"
         drawerPathname="/projects/p1"
         assignees={assignees}
         statuses={[{ id: 'todo', name: 'To do', color: '#000' }]}
@@ -159,6 +166,7 @@ describe('BoardView', () => {
     render(
       <BoardView
         projectId="p1"
+        currentUserId="u1"
         drawerPathname="/projects/p1"
         assignees={assignees}
         statuses={[{ id: 'waiting', name: 'Waiting', color: '#b66a00' }]}

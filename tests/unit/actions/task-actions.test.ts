@@ -5,6 +5,8 @@ import {
   createFollowUpTaskAction,
   createTaskAction,
   moveTaskAction,
+  moveTaskWithConcurrencyAction,
+  reorderBoardColumnAction,
   updateTaskAction,
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
@@ -636,6 +638,237 @@ describe('task actions', () => {
     if (!result.ok) {
       expect(result.error).toBe('Please choose a non-empty file.');
     }
+  });
+
+  describe('moveTaskWithConcurrencyAction', () => {
+    const statusInProgress = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+    it('moves task with concurrency and returns lane versions', async () => {
+      const { supabase } = createSupabaseMock([
+        // getBoardLane: fetch task
+        {
+          table: 'tasks',
+          response: {
+            data: {
+              id: ids.task,
+              project_id: ids.project,
+              status_id: ids.statusTodo,
+              section_id: null,
+              sort_order: 1
+            },
+            error: null
+          }
+        },
+        // getBoardLane: destination
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusDone, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // getBoardLane: source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane: destination
+        {
+          table: 'tasks',
+          response: { data: [], error: null }
+        },
+        // getOrderedTasksForLane: source
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update destination
+        {
+          table: 'project_statuses',
+          response: {
+            data: { lane_version: 1 },
+            error: null
+          }
+        },
+        // persistLaneTaskOrder: destination update task
+        {
+          table: 'tasks',
+          response: { data: null, error: null }
+        },
+        // incrementLaneVersionSafe: getBoardLane for source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 0 },
+            error: null
+          }
+        },
+        // incrementLaneVersionSafe: update source
+        {
+          table: 'project_statuses',
+          response: {
+            data: { lane_version: 1 },
+            error: null
+          }
+        },
+        // logActivity
+        { table: 'task_activity', response: { data: null, error: null } }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await moveTaskWithConcurrencyAction({
+        taskId: ids.task,
+        projectId: ids.project,
+        fromStatusId: ids.statusTodo,
+        toStatusId: ids.statusDone,
+        targetIndex: 0,
+        expectedLaneVersion: 0
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.taskId).toBe(ids.task);
+        expect(result.data.statusId).toBe(ids.statusDone);
+        expect(result.data.laneVersion).toBe(1);
+        // Issue 2 fix: source lane version is returned
+        expect(result.data.sourceLaneVersion).toBe(1);
+        expect(result.data.sourceStatusId).toBe(ids.statusTodo);
+        expect(result.data.conflict).toBeUndefined();
+      }
+    });
+
+    it('returns version conflict when lane version does not match', async () => {
+      const { supabase } = createSupabaseMock([
+        // fetch task
+        {
+          table: 'tasks',
+          response: {
+            data: {
+              id: ids.task,
+              project_id: ids.project,
+              status_id: ids.statusTodo,
+              section_id: null,
+              sort_order: 1
+            },
+            error: null
+          }
+        },
+        // getBoardLane: destination (same lane move)
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 2 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane: destination
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update fails (no match)
+        {
+          table: 'project_statuses',
+          response: { data: null, error: null }
+        },
+        // tryBumpLaneVersion: get actual version
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 2 },
+            error: null
+          }
+        }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await moveTaskWithConcurrencyAction({
+        taskId: ids.task,
+        projectId: ids.project,
+        fromStatusId: ids.statusTodo,
+        toStatusId: ids.statusTodo,
+        targetIndex: 0,
+        expectedLaneVersion: 0
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.conflict).toBeDefined();
+        expect(result.data.conflict?.reason).toBe('version_mismatch');
+        expect(result.data.conflict?.actualVersion).toBe(2);
+      }
+    });
+  });
+
+  describe('reorderBoardColumnAction', () => {
+    it('returns conflict when lane version mismatches', async () => {
+      const { supabase } = createSupabaseMock([
+        // getBoardLane
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+            error: null
+          }
+        },
+        // getOrderedTasksForLane
+        {
+          table: 'tasks',
+          response: {
+            data: [{ id: ids.task, status_id: ids.statusTodo, section_id: null, sort_order: 1 }],
+            error: null
+          }
+        },
+        // tryBumpLaneVersion: update fails
+        {
+          table: 'project_statuses',
+          response: { data: null, error: null }
+        },
+        // tryBumpLaneVersion: get actual
+        {
+          table: 'project_statuses',
+          response: {
+            data: { id: ids.statusTodo, project_id: ids.project, lane_version: 5 },
+            error: null
+          }
+        }
+      ]);
+
+      vi.mocked(requireUser).mockResolvedValue({
+        user: { id: ids.userA } as never,
+        supabase: supabase as never
+      });
+
+      const result = await reorderBoardColumnAction({
+        projectId: ids.project,
+        statusId: ids.statusTodo,
+        orderedTaskIds: [ids.task],
+        expectedLaneVersion: 3
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.conflict).toBeDefined();
+        expect(result.data.conflict?.reason).toBe('version_mismatch');
+      }
+    });
   });
 });
 

@@ -233,6 +233,7 @@ export type Database = {
           color: string;
           sort_order: number;
           is_done: boolean;
+          lane_version: number;
           created_at: string;
         };
         Insert: {
@@ -242,6 +243,7 @@ export type Database = {
           color?: string;
           sort_order: number;
           is_done?: boolean;
+          lane_version?: number;
           created_at?: string;
         };
         Update: {
@@ -249,6 +251,7 @@ export type Database = {
           color?: string;
           sort_order?: number;
           is_done?: boolean;
+          lane_version?: number;
         };
         Relationships: [];
       };
