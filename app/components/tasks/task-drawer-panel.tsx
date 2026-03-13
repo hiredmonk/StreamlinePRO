@@ -7,9 +7,11 @@ import {
   uploadTaskAttachmentFromForm
 } from '@/lib/actions/form-actions';
 import { FollowUpTaskForm } from '@/app/components/tasks/follow-up-task-form';
+import { RecurrenceCard } from '@/app/components/tasks/recurrence-card';
 import { PriorityBadge, StatusBadge } from '@/app/components/ui/badge';
 import { toDateTimeLocalValue } from '@/lib/domain/tasks/format';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
+import type { TaskRecurrenceEditorState } from '@/lib/domain/tasks/recurrence-types';
 
 type TaskDrawerPanelProps = {
   task: TaskWithRelations;
@@ -44,6 +46,7 @@ type TaskDrawerPanelProps = {
   completionReturnTo?: string;
   mode?: 'details' | 'completed';
   recurringNotice?: string | null;
+  recurrenceEditorState?: TaskRecurrenceEditorState;
 };
 
 export function TaskDrawerPanel({
@@ -58,7 +61,8 @@ export function TaskDrawerPanel({
   closeHref,
   completionReturnTo,
   mode = 'details',
-  recurringNotice
+  recurringNotice,
+  recurrenceEditorState
 }: TaskDrawerPanelProps) {
   const currentAssignee = assignees.find((assignee) => assignee.userId === task.assignee_id) ?? null;
   const hasFormerAssignee = Boolean(task.assignee_id && !currentAssignee);
@@ -212,6 +216,12 @@ export function TaskDrawerPanel({
               Save task
             </button>
           </form>
+
+          {recurrenceEditorState ? (
+            <section className="mt-3">
+              <RecurrenceCard taskId={task.id} editorState={recurrenceEditorState} />
+            </section>
+          ) : null}
 
           <section className="mt-5 rounded-xl border border-[#ddd2bc] bg-[#fff8ee] p-3">
             <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#5d625d]">Keep the workflow moving</h3>

@@ -231,6 +231,36 @@ describe('task actions', () => {
     );
   });
 
+  it('rejects clearing due date on recurring task', async () => {
+    const { supabase } = createSupabaseMock([
+      {
+        table: 'tasks',
+        response: {
+          data: {
+            id: ids.task,
+            project_id: ids.project,
+            assignee_id: ids.userA,
+            title: 'Recurring task',
+            recurrence_id: ids.recurrence
+          },
+          error: null
+        }
+      }
+    ]);
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: { id: ids.userA } as never,
+      supabase: supabase as never
+    });
+
+    const result = await updateTaskAction({
+      id: ids.task,
+      dueAt: null
+    });
+
+    expect(result).toEqual({ ok: false, error: 'Remove recurrence before clearing the due date.' });
+  });
+
   it('rejects update when assignee is not allowed for the project', async () => {
     const { supabase } = createSupabaseMock([
       {

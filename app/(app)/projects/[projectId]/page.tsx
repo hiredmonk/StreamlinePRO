@@ -117,6 +117,7 @@ export default async function ProjectDetailPage({
           completionReturnTo={`/projects/${pageData.project.id}?task=${pageData.selectedTaskPanel.task.id}&completed=1`}
           mode={pageData.selectedTaskMode}
           recurringNotice={pageData.recurringNotice}
+          recurrenceEditorState={pageData.selectedTaskPanel.recurrenceEditorState}
         />
       ) : null}
     </div>

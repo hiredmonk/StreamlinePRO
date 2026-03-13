@@ -24,6 +24,13 @@ import {
   updateTaskAction,
   uploadTaskAttachmentAction
 } from '@/lib/actions/task-actions';
+import {
+  createTaskRecurrenceAction,
+  updateTaskRecurrenceAction,
+  pauseTaskRecurrenceAction,
+  resumeTaskRecurrenceAction,
+  clearTaskRecurrenceAction
+} from '@/lib/actions/recurrence-actions';
 import { markNotificationReadAction } from '@/lib/actions/inbox-actions';
 
 export async function createWorkspaceFromForm(formData: FormData) {
@@ -304,6 +311,64 @@ export async function uploadTaskAttachmentFromForm(formData: FormData) {
 export async function markNotificationReadFromForm(formData: FormData) {
   const result = await markNotificationReadAction({
     id: String(formData.get('id') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function createTaskRecurrenceFromForm(formData: FormData) {
+  const result = await createTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    interval: Number(formData.get('interval') ?? 1)
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function updateTaskRecurrenceFromForm(formData: FormData) {
+  const result = await updateTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    interval: Number(formData.get('interval') ?? 1)
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function pauseTaskRecurrenceFromForm(formData: FormData) {
+  const result = await pauseTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function resumeTaskRecurrenceFromForm(formData: FormData) {
+  const result = await resumeTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function clearTaskRecurrenceFromForm(formData: FormData) {
+  const result = await clearTaskRecurrenceAction({
+    taskId: String(formData.get('taskId') ?? ''),
+    recurrenceId: String(formData.get('recurrenceId') ?? '')
   });
 
   if (!result.ok) {
