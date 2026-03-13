@@ -16,11 +16,13 @@ export type ProjectDetailPageData = {
   workflowOptions: ReturnType<typeof buildProjectWorkflowOptions>;
   setupGuide: ProjectSetupGuide | null;
   selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerDataForTask>> | null;
+  selectedTaskMode: 'details' | 'completed';
+  recurringNotice: string | null;
 };
 
 export async function loadProjectDetailPageData(
   projectId: string,
-  search: { task?: string }
+  search: { task?: string; completed?: string; recurring?: string }
 ): Promise<ProjectDetailPageData | null> {
   const { supabase } = await requireUser();
   const project = await getProjectById(supabase, projectId);
@@ -48,7 +50,12 @@ export async function loadProjectDetailPageData(
     assignees: assigneesByProject[project.id] ?? [],
     workflowOptions: buildProjectWorkflowOptions(statuses, sections),
     setupGuide: buildProjectSetupGuide(tasks.length),
-    selectedTaskPanel
+    selectedTaskPanel,
+    selectedTaskMode: search.completed === '1' ? 'completed' : 'details',
+    recurringNotice:
+      search.recurring === '1'
+        ? 'The recurring series already generated the next task.'
+        : null
   };
 }
 

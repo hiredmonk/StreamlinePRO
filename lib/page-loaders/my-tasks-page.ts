@@ -1,6 +1,10 @@
 import { requireUser } from '@/lib/auth';
 import { getProjectsForWorkspace, getWorkspacesForUser } from '@/lib/domain/projects/queries';
-import { getMyTasks, type MyTasksGroups } from '@/lib/domain/tasks/queries';
+import {
+  getMyTasks,
+  type MyTasksGroups,
+  type MyTasksQuickFilter
+} from '@/lib/domain/tasks/queries';
 import { loadProjectAssignees, type AssigneeOption } from '@/lib/page-loaders/project-assignees';
 import { loadTaskDrawerData } from '@/lib/page-loaders/task-drawer';
 
@@ -23,16 +27,41 @@ export type MyTasksPageData =
     }
   | {
       mode: 'ready';
+      currentUserId: string;
       groups: MyTasksGroups;
+      filterState: MyTasksFilterState;
       quickAddProjects: Array<{ id: string; name: string }>;
       statusesByProject: Record<string, Array<{ id: string; name: string; color: string }>>;
       sectionsByProject: Record<string, Array<{ id: string; name: string }>>;
       assigneesByProject: Record<string, AssigneeOption[]>;
       selectedTaskPanel: Awaited<ReturnType<typeof loadTaskDrawerData>>;
+      selectedTaskMode: 'details' | 'completed';
+      recurringNotice: string | null;
       hasAnyTask: boolean;
     };
 
-export async function loadMyTasksPageData(search: { task?: string }): Promise<MyTasksPageData> {
+export type MyTasksSearch = {
+  workspace?: string;
+  project?: string;
+  status?: string;
+  quick?: string;
+  task?: string;
+  completed?: string;
+  recurring?: string;
+};
+
+export type MyTasksFilterState = {
+  activeWorkspaceId: string;
+  workspaceOptions: Array<{ id: string; name: string }>;
+  projectOptions: Array<{ id: string; name: string }>;
+  statusOptions: Array<{ id: string; name: string; label: string }>;
+  selectedProjectId: string | null;
+  selectedStatusId: string | null;
+  selectedQuickFilter: MyTasksQuickFilter | null;
+  hasActiveFilters: boolean;
+};
+
+export async function loadMyTasksPageData(search: MyTasksSearch): Promise<MyTasksPageData> {
   const selectedTaskId = search.task;
   const { user, supabase } = await requireUser();
   const workspaces = await getWorkspacesForUser(supabase, user.id);
@@ -41,17 +70,41 @@ export async function loadMyTasksPageData(search: { task?: string }): Promise<My
     return { mode: 'no-workspaces' };
   }
 
-  const activeWorkspace = workspaces[0];
+  const activeWorkspace =
+    workspaces.find((workspace) => workspace.id === search.workspace) ?? workspaces[0];
   const projects = await getProjectsForWorkspace(supabase, activeWorkspace.id);
   const projectIds = projects.map((project) => project.id);
-
-  const [statusRows, sectionRows, groups, selectedTaskPanel, assigneesByProject] = await Promise.all([
+  const [statusRows, sectionRows, assigneesByProject, selectedTaskPanelCandidate] = await Promise.all([
     loadProjectStatusRows(supabase, projectIds),
     loadProjectSectionRows(supabase, projectIds),
-    getMyTasks(supabase, user.id),
-    selectedTaskId ? loadTaskDrawerData(supabase, selectedTaskId) : Promise.resolve(null),
-    loadProjectAssignees(supabase, projectIds)
+    loadProjectAssignees(supabase, projectIds),
+    selectedTaskId ? loadTaskDrawerData(supabase, selectedTaskId) : Promise.resolve(null)
   ]);
+
+  const projectIdSet = new Set(projectIds);
+  const selectedProjectId = projectIdSet.has(search.project ?? '') ? search.project ?? null : null;
+  const selectedQuickFilter = parseQuickFilter(search.quick);
+  const validStatusIds = new Set(statusRows.map((status) => status.id));
+  const selectedStatusId = validStatusIds.has(search.status ?? '') ? search.status ?? null : null;
+  const waitingStatusIds = statusRows
+    .filter((status) => normalizeStatusName(status.name) === 'waiting')
+    .map((status) => status.id);
+  const filteredStatusIds = resolveStatusFilterIds({
+    selectedStatusId,
+    selectedQuickFilter,
+    waitingStatusIds
+  });
+  const groups = await getMyTasks(supabase, {
+    userId: user.id,
+    projectIds,
+    projectId: selectedProjectId,
+    statusIds: filteredStatusIds,
+    quickFilter: selectedQuickFilter
+  });
+  const selectedTaskPanel =
+    selectedTaskPanelCandidate && projectIdSet.has(selectedTaskPanelCandidate.task.project_id)
+      ? selectedTaskPanelCandidate
+      : null;
 
   const { statusesByProject, sectionsByProject } = buildProjectTaxonomyMaps(statusRows, sectionRows);
   const hasAnyTask =
@@ -61,12 +114,27 @@ export async function loadMyTasksPageData(search: { task?: string }): Promise<My
 
   return {
     mode: 'ready',
+    currentUserId: user.id,
     groups,
+    filterState: buildMyTasksFilterState({
+      workspaces,
+      activeWorkspaceId: activeWorkspace.id,
+      projects,
+      statusRows,
+      selectedProjectId,
+      selectedStatusId,
+      selectedQuickFilter
+    }),
     quickAddProjects: projects.map((project) => ({ id: project.id, name: project.name })),
     statusesByProject,
     sectionsByProject,
     assigneesByProject,
     selectedTaskPanel,
+    selectedTaskMode: search.completed === '1' ? 'completed' : 'details',
+    recurringNotice:
+      search.recurring === '1'
+        ? 'The recurring series already generated the next task.'
+        : null,
     hasAnyTask
   };
 }
@@ -96,6 +164,79 @@ export function buildProjectTaxonomyMaps(statusRows: StatusRow[], sectionRows: S
     statusesByProject,
     sectionsByProject
   };
+}
+
+function buildMyTasksFilterState(input: {
+  workspaces: Array<{ id: string; name: string }>;
+  activeWorkspaceId: string;
+  projects: Array<{ id: string; name: string }>;
+  statusRows: StatusRow[];
+  selectedProjectId: string | null;
+  selectedStatusId: string | null;
+  selectedQuickFilter: MyTasksQuickFilter | null;
+}): MyTasksFilterState {
+  const projectNameById = new Map(input.projects.map((project) => [project.id, project.name]));
+  const shouldPrefixStatusLabel =
+    input.selectedProjectId === null && new Set(input.statusRows.map((status) => status.project_id)).size > 1;
+
+  return {
+    activeWorkspaceId: input.activeWorkspaceId,
+    workspaceOptions: input.workspaces.map((workspace) => ({
+      id: workspace.id,
+      name: workspace.name
+    })),
+    projectOptions: input.projects.map((project) => ({
+      id: project.id,
+      name: project.name
+    })),
+    statusOptions: input.statusRows
+      .filter((status) => input.selectedProjectId === null || status.project_id === input.selectedProjectId)
+      .map((status) => ({
+        id: status.id,
+        name: status.name,
+        label: shouldPrefixStatusLabel
+          ? `${projectNameById.get(status.project_id) ?? 'Project'} - ${status.name}`
+          : status.name
+      })),
+    selectedProjectId: input.selectedProjectId,
+    selectedStatusId: input.selectedStatusId,
+    selectedQuickFilter: input.selectedQuickFilter,
+    hasActiveFilters: Boolean(
+      input.selectedProjectId || input.selectedStatusId || input.selectedQuickFilter
+    )
+  };
+}
+
+function resolveStatusFilterIds(input: {
+  selectedStatusId: string | null;
+  selectedQuickFilter: MyTasksQuickFilter | null;
+  waitingStatusIds: string[];
+}) {
+  if (input.selectedQuickFilter === 'waiting') {
+    if (input.selectedStatusId) {
+      return input.waitingStatusIds.includes(input.selectedStatusId) ? [input.selectedStatusId] : [];
+    }
+
+    return input.waitingStatusIds;
+  }
+
+  if (input.selectedStatusId) {
+    return [input.selectedStatusId];
+  }
+
+  return undefined;
+}
+
+function parseQuickFilter(value: string | undefined): MyTasksQuickFilter | null {
+  if (value === 'waiting' || value === 'due-this-week' || value === 'unassigned') {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeStatusName(name: string) {
+  return name.trim().toLowerCase();
 }
 
 async function loadProjectStatusRows(supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], projectIds: string[]) {

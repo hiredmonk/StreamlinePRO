@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommentFromForm,
   cancelWorkspaceInviteFromForm,
+  completeTaskFromForm,
+  createFollowUpTaskFromForm,
   createProjectStatusFromForm,
   createProjectFromForm,
   createTaskFromForm,
@@ -16,7 +18,13 @@ import {
   updateWorkspaceMemberRoleFromForm
 } from '@/lib/actions/form-actions';
 import { redirect } from 'next/navigation';
-import { addCommentAction, createTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
+import {
+  addCommentAction,
+  completeTaskAction,
+  createFollowUpTaskAction,
+  createTaskAction,
+  updateTaskAction
+} from '@/lib/actions/task-actions';
 import {
   createProjectStatusAction,
   createProjectAction,
@@ -50,6 +58,7 @@ vi.mock('@/lib/actions/workspace-actions', () => ({
 }));
 vi.mock('@/lib/actions/task-actions', () => ({
   createTaskAction: vi.fn(),
+  createFollowUpTaskAction: vi.fn(),
   updateTaskAction: vi.fn(),
   moveTaskAction: vi.fn(),
   completeTaskAction: vi.fn(),
@@ -220,6 +229,32 @@ describe('form actions', () => {
     });
   });
 
+  it('forwards follow-up creation forms and redirects when requested', async () => {
+    vi.mocked(createFollowUpTaskAction).mockResolvedValue({
+      ok: true,
+      data: { taskId: 't2', sourceTaskId: 't1' }
+    });
+
+    const followUpForm = new FormData();
+    followUpForm.set('sourceTaskId', '11111111-1111-4111-8111-111111111111');
+    followUpForm.set('title', 'Call vendor tomorrow');
+    followUpForm.set('assigneeId', '');
+    followUpForm.set('priority', 'medium');
+    followUpForm.set('returnTo', '/my-tasks');
+
+    await createFollowUpTaskFromForm(followUpForm);
+
+    expect(createFollowUpTaskAction).toHaveBeenCalledWith({
+      sourceTaskId: '11111111-1111-4111-8111-111111111111',
+      title: 'Call vendor tomorrow',
+      assigneeId: null,
+      priority: 'medium',
+      dueAt: null,
+      dueTimezone: null
+    });
+    expect(redirect).toHaveBeenCalledWith('/my-tasks');
+  });
+
   it('forwards project workflow status forms', async () => {
     vi.mocked(createProjectStatusAction).mockResolvedValue({
       ok: true,
@@ -273,6 +308,26 @@ describe('form actions', () => {
     );
     expect(deleteProjectStatusAction).toHaveBeenCalledWith(
       expect.objectContaining({ id: 's1', fallbackStatusId: 's2' })
+    );
+  });
+
+  it('redirects task completion back into drawer completion state when requested', async () => {
+    vi.mocked(completeTaskAction).mockResolvedValue({
+      ok: true,
+      data: {
+        taskId: '11111111-1111-4111-8111-111111111111',
+        recurringNextTaskId: '22222222-2222-4222-8222-222222222222'
+      }
+    });
+
+    const formData = new FormData();
+    formData.set('id', '11111111-1111-4111-8111-111111111111');
+    formData.set('returnTo', '/my-tasks?task=11111111-1111-4111-8111-111111111111&completed=1');
+
+    await completeTaskFromForm(formData);
+
+    expect(redirect).toHaveBeenCalledWith(
+      '/my-tasks?task=11111111-1111-4111-8111-111111111111&completed=1&recurring=1'
     );
   });
 

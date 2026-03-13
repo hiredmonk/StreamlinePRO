@@ -34,8 +34,14 @@ export default async function SignInPage({
           Built Daily
         </h1>
         <p className="mt-5 text-[17px] text-[#4f534d]">
-          Sign in with Google to access your workspace, track commitments, and run projects with Asana-style speed.
+          Sign in with Google to land in My Tasks, open details in a side drawer, and move from daily execution into project setup without losing context.
         </p>
+
+        <div className="mt-6 grid gap-2 rounded-2xl border border-[#dfd3bc] bg-[#fff9ee] p-4 text-sm text-[#4d514b]">
+          <p>After sign-in, your default home is My Tasks.</p>
+          <p>Task details stay in a side drawer so list and board context remain visible.</p>
+          <p>{inviteContext ? 'Accepted invites take you straight into the invited workspace.' : 'First-time admins continue into workspace and project setup guidance.'}</p>
+        </div>
 
         {inviteContext ? (
           <div className="mt-6 rounded-2xl border border-[#dcc7a6] bg-[#fff6e7] p-4 text-sm text-[#4f4a3f]">

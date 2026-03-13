@@ -15,6 +15,7 @@ describe('SignInPage', () => {
     render(await SignInPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole('heading', { name: /Work Clarity/i })).toBeInTheDocument();
+    expect(screen.getByText(/default home is My Tasks/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',
       '/auth/google'
@@ -33,6 +34,7 @@ describe('SignInPage', () => {
     render(await SignInPage({ searchParams: Promise.resolve({ workspaceInvite: 'i1' }) }));
 
     expect(screen.getByText('Invitation ready')).toBeInTheDocument();
+    expect(screen.getByText(/Accepted invites take you straight into the invited workspace/i)).toBeInTheDocument();
     expect(screen.getByText(/Use Google with alex@example.com/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',

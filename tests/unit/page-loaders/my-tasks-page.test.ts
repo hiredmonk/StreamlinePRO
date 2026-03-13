@@ -127,7 +127,14 @@ describe('loadMyTasksPageData', () => {
 
     expect(result).toMatchObject({
       mode: 'ready',
+      currentUserId: 'u1',
       hasAnyTask: true,
+      filterState: {
+        activeWorkspaceId: 'w1',
+        selectedProjectId: null,
+        selectedStatusId: null,
+        selectedQuickFilter: null
+      },
       quickAddProjects: [{ id: 'p1', name: 'Core' }],
       statusesByProject: { p1: [{ id: 'todo', name: 'To do', color: '#111111' }] },
       sectionsByProject: { p1: [{ id: 'sec1', name: 'Backlog' }] },
@@ -142,6 +149,13 @@ describe('loadMyTasksPageData', () => {
           }
         ]
       }
+    });
+    expect(getMyTasks).toHaveBeenCalledWith(expect.anything(), {
+      userId: 'u1',
+      projectIds: ['p1'],
+      projectId: null,
+      statusIds: undefined,
+      quickFilter: null
     });
     expect(loadTaskDrawerData).toHaveBeenCalledWith(expect.anything(), 't1');
   });

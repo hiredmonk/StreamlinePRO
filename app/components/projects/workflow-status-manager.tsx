@@ -27,10 +27,10 @@ export function WorkflowStatusManager({ projectId, statuses, id }: WorkflowStatu
           Status lanes
         </h2>
         <p className="mt-1 text-sm text-[#5d635e]">
-          Add lanes that match your team. Done lanes are completion targets and must keep at least one option.
+          Add lanes that match your team. Use Waiting for blocked or external work, and keep at least one done lane because completion always moves tasks there.
         </p>
         <p className="mt-1 text-xs text-[#777a75]">
-          Tip: deleting a lane safely moves its tasks into the fallback lane you choose.
+          Tip: deleting a lane safely moves its tasks into the fallback lane you choose, so workflow cleanup does not strand active work.
         </p>
       </div>
 

@@ -25,6 +25,7 @@ describe('TaskRow', () => {
     render(
       <TaskRow
         drawerHref="/my-tasks?task=t1"
+        completionReturnTo="/my-tasks?task=t1&completed=1"
         assignees={[
           {
             userId: 'u1',
@@ -65,6 +66,7 @@ describe('TaskRow', () => {
 
     expect(screen.getByText('Pay vendors')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Alex')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
     expect(screen.getByText('Overdue')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
