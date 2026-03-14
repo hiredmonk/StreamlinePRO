@@ -69,7 +69,7 @@ export function TaskDrawerPanel({
   const isCompletedMode = mode === 'completed';
 
   return (
-    <aside className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5">
+    <aside data-drawer-task-id={task.id} className="glass-panel sticky top-6 h-fit max-h-[calc(100dvh-3rem)] overflow-y-auto p-5">
       <div className="mb-5 flex items-start justify-between gap-2">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#6f6a62]">
@@ -87,6 +87,7 @@ export function TaskDrawerPanel({
               <input type="hidden" name="returnTo" value={completionReturnTo} />
               <button
                 type="submit"
+                data-shortcut-complete
                 className="rounded-full border border-[#b7ccb2] bg-[#ebf7ec] px-3 py-1 text-sm font-semibold text-[#1f6a39] hover:bg-[#dff2e2]"
               >
                 Complete task

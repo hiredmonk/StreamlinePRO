@@ -12,6 +12,7 @@ export default async function MyTasksPage({
   searchParams: Promise<MyTasksSearch>;
 }) {
   const params = await searchParams;
+  const autoFocusQuickAdd = params.shortcut === 'new-task';
   const pageData = await loadMyTasksPageData(params);
 
   if (pageData.mode === 'no-workspaces') {
@@ -35,6 +36,7 @@ export default async function MyTasksPage({
             currentUserId={pageData.currentUserId}
             defaultAssigneeMode="self-when-allowed"
             preselectedProjectId={pageData.filterState.selectedProjectId ?? undefined}
+            autoFocusTitle={autoFocusQuickAdd}
           />
         ) : (
           <EmptyState
