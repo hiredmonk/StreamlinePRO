@@ -1,6 +1,6 @@
 import { Button } from '@/app/components/ui/button';
 import {
-  inviteWorkspaceMemberFromForm,
+  createWorkspaceInviteFromForm,
   removeWorkspaceMemberFromForm,
   updateWorkspaceMemberRoleFromForm
 } from '@/lib/actions/form-actions';
@@ -36,7 +36,7 @@ export function WorkspaceMembersPanel({
 
       {canManageMembers ? (
         <form
-          action={inviteWorkspaceMemberFromForm}
+          action={createWorkspaceInviteFromForm}
           className="grid gap-2 rounded-xl border border-[#e2d8c2] bg-[#fff9ee] p-3 md:grid-cols-[1.5fr_140px_auto]"
         >
           <input type="hidden" name="workspaceId" value={workspace.id} />
@@ -84,10 +84,9 @@ export function WorkspaceMembersPanel({
                   className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"
                 >
                   <input type="hidden" name="workspaceId" value={workspace.id} />
-                  <input type="hidden" name="memberUserId" value={member.userId} />
-                  <input type="hidden" name="actorUserId" value={actorUserId} />
+                  <input type="hidden" name="userId" value={member.userId} />
                   <select
-                    name="nextRole"
+                    name="role"
                     defaultValue={member.role}
                     className="h-10 rounded-lg border border-[#d8ccb3] bg-white px-3 text-sm"
                   >
@@ -101,8 +100,7 @@ export function WorkspaceMembersPanel({
 
                 <form action={removeWorkspaceMemberFromForm} className="sm:justify-self-end">
                   <input type="hidden" name="workspaceId" value={workspace.id} />
-                  <input type="hidden" name="memberUserId" value={member.userId} />
-                  <input type="hidden" name="actorUserId" value={actorUserId} />
+                  <input type="hidden" name="userId" value={member.userId} />
                   <Button type="submit" tone="danger">
                     Remove
                   </Button>

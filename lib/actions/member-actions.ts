@@ -371,7 +371,7 @@ function revalidateWorkspacePaths(workspaceProjectIds: string[] = []) {
   }
 }
 
-async function findAuthUserByEmail(
+export async function findAuthUserByEmail(
   adminSupabase: ReturnType<typeof createSupabaseAdminClient>,
   email: string
 ) {

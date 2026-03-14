@@ -11,6 +11,7 @@ import {
   updateWorkspaceMemberRoleSchema
 } from '@/lib/validators/workspace';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { findAuthUserByEmail } from '@/lib/actions/member-actions';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
@@ -40,6 +41,20 @@ export async function createWorkspaceInviteAction(input: {
 
     if (workspaceError || !workspace) {
       throw workspaceError ?? new Error('Workspace not found.');
+    }
+
+    const adminSupabase = createSupabaseAdminClient();
+    const matchedUser = await findAuthUserByEmail(adminSupabase, normalizedEmail);
+    if (matchedUser) {
+      const { data: existingMember } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', parsed.workspaceId)
+        .eq('user_id', matchedUser.id)
+        .maybeSingle();
+      if (existingMember) {
+        throw new Error('User is already a workspace member.');
+      }
     }
 
     const pendingInvites = await getPendingWorkspaceInvites(supabase, parsed.workspaceId);

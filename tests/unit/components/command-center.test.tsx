@@ -159,6 +159,34 @@ describe('CommandCenter', () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
+  // ── Workspace context preservation (Bug 6) ─────────────────────
+
+  it('preserves workspace context when navigating via command palette', async () => {
+    mockSearchParams = new URLSearchParams('workspace=w1');
+    render(<CommandCenter />);
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    await screen.findByRole('button', { name: /Go to Inbox/i });
+
+    const input = screen.getByPlaceholderText('Type a command or search');
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith(expect.stringContaining('workspace=w1'));
+    });
+  });
+
+  it('preserves workspace context on task.new fallback navigation', async () => {
+    mockSearchParams = new URLSearchParams('workspace=w1');
+    mockPathname = '/projects';
+    render(<CommandCenter />);
+
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/my-tasks?workspace=w1&shortcut=new-task');
+    });
+  });
+
   // ── Palette lifecycle (9–11) ────────────────────────────────────
 
   it('closes palette when Escape key is pressed inside the palette input', async () => {

@@ -163,6 +163,86 @@ describe('BoardView', () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it('renders data-shortcut-complete button inside each task card', () => {
+    render(
+      <BoardView
+        projectId="p1"
+        currentUserId="u1"
+        drawerPathname="/projects/p1"
+        assignees={assignees}
+        statuses={[{ id: 'todo', name: 'To do', color: '#000' }]}
+        tasks={[
+          {
+            id: 't1',
+            project_id: 'p1',
+            section_id: null,
+            status_id: 'todo',
+            title: 'Task A',
+            description: null,
+            assignee_id: null,
+            creator_id: 'u1',
+            due_at: null,
+            due_timezone: null,
+            priority: null,
+            parent_task_id: null,
+            recurrence_id: null,
+            is_today: false,
+            sort_order: 1,
+            completed_at: null,
+            project: { id: 'p1', name: 'Core' },
+            status: { id: 'todo', name: 'To do', color: '#000', is_done: false },
+            section: null
+          }
+        ]}
+      />
+    );
+
+    const taskCard = document.querySelector('[data-task-id="t1"]');
+    expect(taskCard).toBeTruthy();
+    const completeButton = taskCard?.querySelector('[data-shortcut-complete]');
+    expect(completeButton).toBeTruthy();
+  });
+
+  it('complete shortcut hidden form contains the correct task id', () => {
+    render(
+      <BoardView
+        projectId="p1"
+        currentUserId="u1"
+        drawerPathname="/projects/p1"
+        assignees={assignees}
+        statuses={[{ id: 'todo', name: 'To do', color: '#000' }]}
+        tasks={[
+          {
+            id: 't1',
+            project_id: 'p1',
+            section_id: null,
+            status_id: 'todo',
+            title: 'Task A',
+            description: null,
+            assignee_id: null,
+            creator_id: 'u1',
+            due_at: null,
+            due_timezone: null,
+            priority: null,
+            parent_task_id: null,
+            recurrence_id: null,
+            is_today: false,
+            sort_order: 1,
+            completed_at: null,
+            project: { id: 'p1', name: 'Core' },
+            status: { id: 'todo', name: 'To do', color: '#000', is_done: false },
+            section: null
+          }
+        ]}
+      />
+    );
+
+    const taskCard = document.querySelector('[data-task-id="t1"]');
+    const hiddenInput = taskCard?.querySelector('input[name="id"]') as HTMLInputElement;
+    expect(hiddenInput).toBeTruthy();
+    expect(hiddenInput.value).toBe('t1');
+  });
+
   it('renders due metadata and risk signals on cards', () => {
     render(
       <BoardView

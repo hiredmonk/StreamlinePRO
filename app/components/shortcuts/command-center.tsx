@@ -105,7 +105,10 @@ export function CommandCenter() {
         const actionHandled = runActionTrigger(result.triggerActionId);
         if (!actionHandled) {
           if (result.triggerActionId === 'task.new') {
-            router.push('/my-tasks?shortcut=new-task' as Route);
+            const newTaskUrl = activeWorkspaceId
+              ? `/my-tasks?workspace=${activeWorkspaceId}&shortcut=new-task`
+              : '/my-tasks?shortcut=new-task';
+            router.push(newTaskUrl as Route);
             return true;
           }
           return false;
@@ -113,7 +116,10 @@ export function CommandCenter() {
       }
 
       if (result.navigateTo) {
-        router.push(result.navigateTo as Route);
+        const navigateUrl = activeWorkspaceId
+          ? `${result.navigateTo}?workspace=${activeWorkspaceId}`
+          : result.navigateTo;
+        router.push(navigateUrl as Route);
       }
 
       return true;
@@ -164,7 +170,10 @@ export function CommandCenter() {
       if (isActionShortcutId(matched.id)) {
         const actionHandled = runActionTrigger(matched.id);
         if (!actionHandled && matched.id === 'task.new') {
-          router.push('/my-tasks?shortcut=new-task' as Route);
+          const newTaskUrl = activeWorkspaceId
+            ? `/my-tasks?workspace=${activeWorkspaceId}&shortcut=new-task`
+            : '/my-tasks?shortcut=new-task';
+          router.push(newTaskUrl as Route);
         }
         return;
       }
@@ -189,7 +198,7 @@ export function CommandCenter() {
       window.removeEventListener('compositionstart', onCompositionStart);
       window.removeEventListener('compositionend', onCompositionEnd);
     };
-  }, [executeById, isPaletteOpen, pathname, router, runActionTrigger]);
+  }, [activeWorkspaceId, executeById, isPaletteOpen, pathname, router, runActionTrigger]);
 
   const onPaletteKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLInputElement>) => {

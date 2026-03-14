@@ -1,4 +1,5 @@
 import { getWorkspaceInviteContext } from '@/lib/domain/workspaces/invites';
+import { workspaceInviteIdSchema } from '@/lib/validators/workspace';
 
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_failed: 'Google sign-in could not be started. Please try again.',
@@ -12,8 +13,13 @@ export default async function SignInPage({
   searchParams: Promise<{ error?: string; workspaceInvite?: string }>;
 }) {
   const params = await searchParams;
-  const inviteContext = params.workspaceInvite
-    ? await getWorkspaceInviteContext(params.workspaceInvite)
+  const validInviteId = params.workspaceInvite
+    ? (workspaceInviteIdSchema.safeParse(params.workspaceInvite).success
+        ? params.workspaceInvite
+        : null)
+    : null;
+  const inviteContext = validInviteId
+    ? await getWorkspaceInviteContext(validInviteId)
     : null;
   const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
   const googleHref = inviteContext

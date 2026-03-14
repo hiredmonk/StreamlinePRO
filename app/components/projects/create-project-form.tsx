@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { createProjectFromForm } from '@/lib/actions/form-actions';
 import { Button } from '@/app/components/ui/button';
 import type { ProjectTemplateSummary } from '@/lib/contracts/project-templates';
@@ -15,6 +16,13 @@ export function CreateProjectForm({
   className?: string;
   id?: string;
 }) {
+  const [description, setDescription] = useState('');
+
+  function handleTemplateChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const selected = templates?.find((t) => t.id === e.target.value);
+    setDescription(selected?.description ?? '');
+  }
+
   return (
     <form
       id={id}
@@ -26,6 +34,7 @@ export function CreateProjectForm({
         <select
           name="templateId"
           defaultValue=""
+          onChange={handleTemplateChange}
           className="h-10 rounded-xl border border-[#d9cfb6] bg-[#fffdf8] px-3 text-sm"
         >
           <option value="">Blank project</option>
@@ -45,6 +54,8 @@ export function CreateProjectForm({
       <input
         name="description"
         placeholder="Description (optional)"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
         className="h-10 rounded-xl border border-[#d9cfb6] bg-[#fffdf8] px-3 text-sm"
       />
       <select name="privacy" defaultValue="workspace_visible" className="h-10 rounded-xl border border-[#d9cfb6] bg-[#fffdf8] px-3 text-sm">
