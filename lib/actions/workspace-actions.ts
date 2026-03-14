@@ -11,6 +11,7 @@ import {
   updateWorkspaceMemberRoleSchema
 } from '@/lib/validators/workspace';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { findAuthUserByEmail } from '@/lib/actions/member-actions';
 import { toErrorMessage } from '@/lib/utils';
 import type { ActionResult } from '@/lib/actions/types';
 import type { AppSupabaseClient } from '@/lib/supabase/client-types';
@@ -43,10 +44,7 @@ export async function createWorkspaceInviteAction(input: {
     }
 
     const adminSupabase = createSupabaseAdminClient();
-    const { data: existingUser } = await adminSupabase.auth.admin.listUsers();
-    const matchedUser = existingUser?.users?.find(
-      (u) => u.email && normalizeEmail(u.email) === normalizedEmail
-    );
+    const matchedUser = await findAuthUserByEmail(adminSupabase, normalizedEmail);
     if (matchedUser) {
       const { data: existingMember } = await supabase
         .from('workspace_members')
