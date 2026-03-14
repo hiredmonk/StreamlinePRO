@@ -195,10 +195,6 @@ export function BoardView({
                   {column.items.length}
                 </span>
               </div>
-              <form action={completeTaskFromForm} className="hidden">
-                <button type="submit" data-shortcut-complete />
-              </form>
-
               <ul className="space-y-2">
                 {column.items.map((task, cardIndex) => {
                   const currentAssignee = getAssignee(task);
@@ -286,6 +282,10 @@ export function BoardView({
                           ))}
                         </select>
                       </label>
+                      <form action={completeTaskFromForm} className="hidden">
+                        <input type="hidden" name="id" value={task.id} />
+                        <button type="submit" data-shortcut-complete />
+                      </form>
                     </li>
                   );
                 })}

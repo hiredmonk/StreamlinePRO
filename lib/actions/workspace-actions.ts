@@ -42,6 +42,23 @@ export async function createWorkspaceInviteAction(input: {
       throw workspaceError ?? new Error('Workspace not found.');
     }
 
+    const adminSupabase = createSupabaseAdminClient();
+    const { data: existingUser } = await adminSupabase.auth.admin.listUsers();
+    const matchedUser = existingUser?.users?.find(
+      (u) => u.email && normalizeEmail(u.email) === normalizedEmail
+    );
+    if (matchedUser) {
+      const { data: existingMember } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', parsed.workspaceId)
+        .eq('user_id', matchedUser.id)
+        .maybeSingle();
+      if (existingMember) {
+        throw new Error('User is already a workspace member.');
+      }
+    }
+
     const pendingInvites = await getPendingWorkspaceInvites(supabase, parsed.workspaceId);
     if (pendingInvites.some((invite) => normalizeEmail(invite.email) === normalizedEmail)) {
       throw new Error('An active invite already exists for that email in this workspace.');

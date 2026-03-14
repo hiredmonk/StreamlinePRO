@@ -14,6 +14,7 @@ export interface MoveTaskWithConcurrencyInput {
   toSectionId?: string | null;
   targetIndex: number;
   expectedLaneVersion: number;
+  expectedSourceLaneVersion?: number;
 }
 
 export interface ReorderBoardColumnInput {

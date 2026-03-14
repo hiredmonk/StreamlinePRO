@@ -230,8 +230,8 @@ export async function updateTaskFromForm(formData: FormData) {
       dueTimezoneValue === null ? undefined : String(dueTimezoneValue) || null,
     statusId: String(formData.get('statusId') ?? '') || undefined,
     sectionId: String(formData.get('sectionId') ?? '') || null,
-    priority: parsePriority(formData.get('priority')),
-    isToday: String(formData.get('isToday') ?? '') === 'on',
+    priority: formData.get('priority') === null ? undefined : parsePriority(formData.get('priority')),
+    isToday: formData.get('isToday') === null ? undefined : String(formData.get('isToday') ?? '') === 'on',
     sortOrder:
       sortOrderValue === null || String(sortOrderValue) === ''
         ? undefined

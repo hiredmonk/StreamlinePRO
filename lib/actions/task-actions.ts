@@ -312,12 +312,16 @@ export async function completeTaskAction(input: {
 
     const { data: task, error: taskError } = await supabase
       .from('tasks')
-      .select('id, project_id, due_at, recurrence_id, title')
+      .select('id, project_id, due_at, recurrence_id, title, completed_at')
       .eq('id', parsed.id)
       .maybeSingle();
 
     if (taskError || !task) {
       throw taskError ?? new Error('Task not found.');
+    }
+
+    if (task.completed_at) {
+      return { ok: true, data: { taskId: task.id } };
     }
 
     const { data: doneStatus, error: statusError } = await supabase
@@ -787,7 +791,7 @@ export async function moveTaskWithConcurrencyAction(
       movedTaskSectionId: parsed.toSectionId ?? null
     });
 
-    // Issue 2 fix: bump source lane and return its new version
+    // Bump source lane and return its new version
     let sourceLaneVersion: number | undefined;
     let sourceStatusId: string | undefined;
     if (parsed.fromStatusId !== parsed.toStatusId) {
@@ -799,10 +803,38 @@ export async function moveTaskWithConcurrencyAction(
         orderedTaskIds: sourceTaskIds
       });
 
-      const newSourceVersion = await incrementLaneVersionSafe(supabase, parsed.projectId, parsed.fromStatusId);
-      if (newSourceVersion !== undefined) {
-        sourceLaneVersion = newSourceVersion;
+      if (parsed.expectedSourceLaneVersion !== undefined) {
+        const sourceVersionResult = await tryBumpLaneVersion(supabase, {
+          projectId: parsed.projectId,
+          statusId: parsed.fromStatusId,
+          expectedLaneVersion: parsed.expectedSourceLaneVersion
+        });
+
+        if (!sourceVersionResult.ok) {
+          return {
+            ok: true,
+            data: buildMoveConflictOutput(
+              parsed,
+              buildBoardConflict({
+                projectId: parsed.projectId,
+                statusId: parsed.fromStatusId,
+                expectedVersion: parsed.expectedSourceLaneVersion,
+                actualVersion: sourceVersionResult.actualVersion,
+                reason: 'version_mismatch'
+              }),
+              task
+            )
+          };
+        }
+
+        sourceLaneVersion = sourceVersionResult.laneVersion;
         sourceStatusId = parsed.fromStatusId;
+      } else {
+        const newSourceVersion = await incrementLaneVersionSafe(supabase, parsed.projectId, parsed.fromStatusId);
+        if (newSourceVersion !== undefined) {
+          sourceLaneVersion = newSourceVersion;
+          sourceStatusId = parsed.fromStatusId;
+        }
       }
     }
 

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { WorkspaceMembersPanel } from '@/app/components/projects/workspace-members-panel';
 
 vi.mock('@/lib/actions/form-actions', () => ({
-  inviteWorkspaceMemberFromForm: vi.fn(),
+  createWorkspaceInviteFromForm: vi.fn(),
   updateWorkspaceMemberRoleFromForm: vi.fn(),
   removeWorkspaceMemberFromForm: vi.fn()
 }));
@@ -40,14 +40,35 @@ describe('WorkspaceMembersPanel', () => {
     expect(screen.getByPlaceholderText('Invite by email')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Save role' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
-    const actorInputs = screen
-      .getAllByDisplayValue('u1')
-      .filter((element) => element.getAttribute('name') === 'actorUserId');
     const workspaceInputs = screen
       .getAllByDisplayValue('w1')
       .filter((element) => element.getAttribute('name') === 'workspaceId');
-    expect(actorInputs.length).toBeGreaterThan(0);
     expect(workspaceInputs.length).toBeGreaterThan(0);
+  });
+
+  it('uses userId field name for hidden inputs instead of memberUserId', () => {
+    render(
+      <WorkspaceMembersPanel
+        workspace={{ id: 'w1', name: 'Ops', icon: null, role: 'admin' }}
+        actorUserId="u1"
+        members={members}
+      />
+    );
+
+    const userIdInputs = screen
+      .getAllByDisplayValue('u1')
+      .filter((element) => element.getAttribute('name') === 'userId');
+    expect(userIdInputs.length).toBeGreaterThan(0);
+
+    const memberUserIdInputs = screen
+      .getAllByDisplayValue('u1')
+      .filter((element) => element.getAttribute('name') === 'memberUserId');
+    expect(memberUserIdInputs).toHaveLength(0);
+
+    const actorUserIdInputs = screen
+      .queryAllByDisplayValue('u1')
+      .filter((element) => element.getAttribute('name') === 'actorUserId');
+    expect(actorUserIdInputs).toHaveLength(0);
   });
 
   it('renders read-only member list for non-admins', () => {

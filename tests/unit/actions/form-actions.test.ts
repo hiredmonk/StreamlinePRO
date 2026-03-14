@@ -414,6 +414,42 @@ describe('form actions', () => {
     await expect(updateTaskFromForm(formData)).rejects.toThrow('update failed');
   });
 
+  it('preserves existing priority and isToday when update form omits those fields', async () => {
+    vi.mocked(updateTaskAction).mockResolvedValue({
+      ok: true,
+      data: { taskId: 't1' }
+    });
+
+    const formData = new FormData();
+    formData.set('id', '11111111-1111-4111-8111-111111111111');
+    formData.set('title', 'Only title change');
+    // priority and isToday are NOT set on the form
+
+    await updateTaskFromForm(formData);
+
+    const payload = vi.mocked(updateTaskAction).mock.calls[0]?.[0];
+    expect(payload?.priority).toBeUndefined();
+    expect(payload?.isToday).toBeUndefined();
+  });
+
+  it('passes priority and isToday through when update form includes those fields', async () => {
+    vi.mocked(updateTaskAction).mockResolvedValue({
+      ok: true,
+      data: { taskId: 't1' }
+    });
+
+    const formData = new FormData();
+    formData.set('id', '11111111-1111-4111-8111-111111111111');
+    formData.set('priority', 'high');
+    formData.set('isToday', 'on');
+
+    await updateTaskFromForm(formData);
+
+    const payload = vi.mocked(updateTaskAction).mock.calls[0]?.[0];
+    expect(payload?.priority).toBe('high');
+    expect(payload?.isToday).toBe(true);
+  });
+
   it('forwards comment and notification read forms', async () => {
     vi.mocked(addCommentAction).mockResolvedValue({ ok: true, data: { commentId: 'c1' } });
     vi.mocked(markNotificationReadAction).mockResolvedValue({

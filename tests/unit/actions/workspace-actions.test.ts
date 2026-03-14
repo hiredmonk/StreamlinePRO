@@ -48,6 +48,16 @@ describe('workspace actions', () => {
         response: { data: { id: ids.invite }, error: null }
       }
     ]);
+    const { supabase: adminSupabase } = createSupabaseMock([]);
+    (adminSupabase as any).auth = {
+      admin: {
+        listUsers: vi.fn().mockResolvedValue({
+          data: { users: [] },
+          error: null
+        })
+      }
+    };
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(adminSupabase as never);
 
     vi.mocked(requireUser).mockResolvedValue({
       user: {
@@ -81,6 +91,51 @@ describe('workspace actions', () => {
       })
     );
     expect(revalidatePath).toHaveBeenCalledWith('/projects');
+  });
+
+  it('rejects invite when email belongs to an existing workspace member', async () => {
+    const { supabase, history } = createSupabaseMock([
+      {
+        table: 'workspaces',
+        response: { data: { id: ids.workspace, name: 'Ops' }, error: null }
+      },
+      // existing member check
+      {
+        table: 'workspace_members',
+        response: { data: { user_id: ids.userB }, error: null }
+      }
+    ]);
+    const { supabase: adminSupabase } = createSupabaseMock([]);
+    // Mock admin auth to return a user matching the invited email
+    (adminSupabase as any).auth = {
+      admin: {
+        listUsers: vi.fn().mockResolvedValue({
+          data: {
+            users: [{ id: ids.userB, email: 'existing@example.com' }]
+          },
+          error: null
+        })
+      }
+    };
+
+    vi.mocked(requireUser).mockResolvedValue({
+      user: {
+        id: ids.userA,
+        email: 'owner@example.com',
+        user_metadata: { full_name: 'Owner' }
+      } as never,
+      supabase: supabase as never
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(adminSupabase as never);
+
+    const result = await createWorkspaceInviteAction({
+      workspaceId: ids.workspace,
+      email: 'Existing@Example.com',
+      role: 'member'
+    });
+
+    expect(result).toEqual({ ok: false, error: 'User is already a workspace member.' });
+    expect(sendWorkspaceInviteEmail).not.toHaveBeenCalled();
   });
 
   it('cancels pending invites', async () => {

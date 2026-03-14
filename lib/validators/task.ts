@@ -69,7 +69,8 @@ export const moveTaskWithConcurrencySchema = z.object({
   toStatusId: z.uuid(),
   toSectionId: z.uuid().nullable().optional(),
   targetIndex: z.number().int().min(0),
-  expectedLaneVersion: z.number().int().min(0)
+  expectedLaneVersion: z.number().int().min(0),
+  expectedSourceLaneVersion: z.number().int().min(0).optional()
 });
 
 export const reorderBoardColumnSchema = z
