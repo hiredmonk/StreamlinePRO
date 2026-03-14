@@ -48,6 +48,7 @@ export type MyTasksSearch = {
   task?: string;
   completed?: '1';
   recurring?: '1';
+  shortcut?: string;
 };
 
 export type MyTasksFilterState = {

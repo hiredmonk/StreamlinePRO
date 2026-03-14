@@ -27,6 +27,7 @@ type QuickAddFormProps = {
   id?: string;
   projectLocked?: boolean;
   submitLabel?: string;
+  autoFocusTitle?: boolean;
 };
 
 export function QuickAddForm({
@@ -38,7 +39,8 @@ export function QuickAddForm({
   defaultPriority = '',
   id,
   projectLocked = false,
-  submitLabel = 'Create'
+  submitLabel = 'Create',
+  autoFocusTitle = false
 }: QuickAddFormProps) {
   const initialProjectId = preselectedProjectId ?? projects[0]?.id ?? '';
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
@@ -78,6 +80,8 @@ export function QuickAddForm({
       <input
         required
         name="title"
+        autoFocus={autoFocusTitle}
+        data-shortcut-target="new-task-input"
         placeholder="Add a task in under 5 seconds..."
         className="h-10 rounded-xl border border-[#d9cfb6] bg-[#fffdf8] px-3 text-sm outline-none focus:border-[#d68f54]"
       />

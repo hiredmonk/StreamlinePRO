@@ -11,6 +11,7 @@ vi.mock('next/navigation', () => ({
     refresh
   })
 }));
+vi.mock('@/lib/actions/form-actions', () => ({ completeTaskFromForm: vi.fn() }));
 vi.mock('@/lib/actions/task-actions', () => ({
   createTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't2' } })),
   moveTaskAction: vi.fn(async () => ({ ok: true, data: { taskId: 't1', sortOrder: 12 } })),

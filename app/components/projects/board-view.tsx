@@ -4,6 +4,7 @@ import { CalendarClock, Clock3 } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createTaskAction, moveTaskAction, updateTaskAction } from '@/lib/actions/task-actions';
+import { completeTaskFromForm } from '@/lib/actions/form-actions';
 import { PriorityBadge } from '@/app/components/ui/badge';
 import type { TaskWithRelations } from '@/lib/domain/tasks/queries';
 import { useBoardTasks } from '@/lib/hooks/use-board-tasks';
@@ -194,6 +195,9 @@ export function BoardView({
                   {column.items.length}
                 </span>
               </div>
+              <form action={completeTaskFromForm} className="hidden">
+                <button type="submit" data-shortcut-complete />
+              </form>
 
               <ul className="space-y-2">
                 {column.items.map((task, cardIndex) => {
@@ -205,6 +209,8 @@ export function BoardView({
                     <li
                       key={task.id}
                       draggable
+                      tabIndex={0}
+                      data-task-id={task.id}
                       onDragStart={(event) => {
                         event.dataTransfer.setData('text/task-id', task.id);
                       }}
@@ -214,10 +220,11 @@ export function BoardView({
                         dropTargetIndexRef.current[column.id] =
                           event.clientY < rect.top + rect.height / 2 ? cardIndex : cardIndex + 1;
                       }}
-                      className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 active:cursor-grabbing"
+                      className="cursor-grab rounded-xl border border-[#dfd3bc] bg-white p-3 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d37f43] focus-visible:ring-offset-2"
                     >
                       <a
                         href={`${drawerPathname}?task=${task.id}`}
+                        data-shortcut-open-drawer
                         className="line-clamp-2 text-sm font-semibold text-[#2b312d] hover:text-[#af3324]"
                       >
                         {task.title}
